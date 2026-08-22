@@ -1,6 +1,6 @@
 /*
  * api-local.js — fetch 인터셉터
- * @version 1.0.0
+ * @version 1.1.0
  *
  * window.fetch를 오버라이드해서 /api/* 요청을
  * Google Drive 로컬 처리로 대체한다.
@@ -123,11 +123,57 @@
 
       /* ── 구역 CRUD ── */
 
+      /* ── 집 CRUD ── */
+
+      if (mtd === 'POST' && match('/api/houses', path)) {
+        const bd   = await parseBody(opts);
+        if (!bd.house_name) return err('집 이름 필수');
+        const id   = SmartDrive.nextId();
+        const code = bd.house_code?.trim() || `H${String(id).padStart(6,'0')}`;
+        const sort = db.items.filter(i => i.node_type==='H').length;
+        db.items.push({ item_id:id, node_type:'H', item_code:code, item_name:bd.house_name,
+          cat_id:defCat(db), unit:'EA', std_price:0, brand:null, spec:null, note:null, sort_order:sort, use_yn:'Y' });
+        await SmartDrive.saveDb();
+        return ok({ item_id:id });
+      }
+
+      if (mtd === 'PUT' && (m = match('/api/houses/:id', path))) {
+        const bd  = await parseBody(opts);
+        if (!bd.house_name) return err('집 이름 필수');
+        const idx = db.items.findIndex(i => i.item_id===parseInt(m[1]) && i.node_type==='H');
+        if (idx>=0) {
+          db.items[idx].item_name = bd.house_name;
+          if (bd.house_code?.trim()) db.items[idx].item_code = bd.house_code.trim().toUpperCase();
+        }
+        await SmartDrive.saveDb();
+        return ok({ ok:true });
+      }
+
+      if (mtd === 'DELETE' && (m = match('/api/houses/:id', path))) {
+        const hid   = parseInt(m[1]);
+        const queue = db.bom.filter(b => b.parent_item_id===hid).map(b => b.bom_id);
+        const delB  = new Set(); const delI = new Set([hid]);
+        while (queue.length) {
+          const bid = queue.shift();
+          if (delB.has(bid)) continue;
+          const b = db.bom.find(x => x.bom_id===bid);
+          if (!b) continue;
+          delB.add(bid); delI.add(b.child_item_id);
+          db.bom.filter(x => x.parent_item_id===b.child_item_id).forEach(x => queue.push(x.bom_id));
+        }
+        db.bom   = db.bom.filter(b => !delB.has(b.bom_id));
+        db.items = db.items.filter(i => !delI.has(i.item_id));
+        await SmartDrive.saveDb();
+        return ok({ ok:true });
+      }
+
       if (mtd === 'POST' && match('/api/zones', path)) {
         const bd = await parseBody(opts);
         if (!bd.zone_name) return err('구역명 필수');
-        const house = db.items.find(i => i.node_type === 'H');
-        if (!house) return err('우리집 노드 없음');
+        const house = bd.house_id
+          ? db.items.find(i => i.item_id===parseInt(bd.house_id) && i.node_type==='H')
+          : db.items.find(i => i.node_type==='H');
+        if (!house) return err('집 노드 없음');
         const sort  = bd.sort_order ?? (Math.max(0, ...db.bom.filter(b => b.parent_item_id === house.item_id).map(b => b.sort_order || 0)) + 1);
         const id    = SmartDrive.nextId();
         const code  = bd.zone_code?.trim() || `Z${String(id).padStart(6, '0')}`;
