@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>아파트 BOM DB 구축방안</title>
+<style>
+  body { font-family:'Malgun Gothic',sans-serif; background:#f4f6fa; margin:0; padding:28px; color:#222; max-width:1100px; margin:0 auto; padding:28px; }
+  h1 { font-size:24px; color:#1a3a6e; border-bottom:3px solid #1a3a6e; padding-bottom:12px; }
+  h2 { font-size:17px; color:#1a3a6e; margin-top:36px; border-left:4px solid #1a3a6e; padding-left:12px; }
+  h3 { font-size:14px; color:#2c5f8a; margin-top:20px; }
+  .meta { font-size:12px; color:#888; margin-bottom:32px; }
+  .card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.08); padding:20px 24px; margin-bottom:20px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#1a3a6e; color:#fff; padding:9px 12px; text-align:left; font-weight:600; }
+  td { padding:8px 12px; border-bottom:1px solid #eee; vertical-align:top; }
+  tr:nth-child(even) td { background:#f9faff; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .tag-struct  { background:#dbeafe; color:#1d4ed8; }
+  .tag-req     { background:#dcfce7; color:#166534; }
+  .tag-general { background:#fef9c3; color:#854d0e; }
+  .bom-tree { font-family:Consolas,monospace; font-size:13px; line-height:2; background:#1e2a38; color:#e0e0e0; padding:16px 20px; border-radius:8px; }
+  .bom-tree .l0 { color:#7dd3fc; font-weight:700; }
+  .bom-tree .l1 { color:#86efac; }
+  .bom-tree .l2 { color:#fde68a; }
+  .bom-tree .l3 { color:#c4b5fd; }
+  .sql { font-family:Consolas,monospace; font-size:12px; background:#1e2a38; color:#e2e8f0; padding:16px; border-radius:8px; line-height:1.7; white-space:pre; overflow-x:auto; }
+  .sql .kw { color:#93c5fd; }
+  .sql .str { color:#86efac; }
+  .sql .cm { color:#64748b; }
+  .zone-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .zone-card { background:#f0f4ff; border-radius:8px; padding:12px; text-align:center; border:1px solid #c7d7f0; }
+  .zone-card .icon { font-size:26px; }
+  .zone-card .name { font-size:13px; font-weight:700; color:#1a3a6e; margin-top:4px; }
+  .zone-card .sub  { font-size:11px; color:#666; margin-top:2px; }
+  .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:16px 0; }
+  .flow-box { background:#1a3a6e; color:#fff; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600; }
+  .flow-arr { color:#1a3a6e; font-size:20px; font-weight:700; }
+  .file-list { list-style:none; padding:0; }
+  .file-list li { padding:6px 0; border-bottom:1px solid #eee; font-size:13px; font-family:Consolas; }
+  .file-list li span { color:#666; font-family:'Malgun Gothic'; margin-left:8px; }
+</style>
+</head>
+<body>
+
+<h1>🏢 아파트 BOM DB 구축방안</h1>
+<p class="meta">DB: gin_db → apart &nbsp;|&nbsp; 작성일: 2026-08-20 &nbsp;|&nbsp; 서버: localhost:1433 (sa/yyw)</p>
+
+<!-- 1. 개요 -->
+<div class="card">
+<h2>1. 개요 및 목표</h2>
+<p>아파트 한 채에 들어가는 모든 물품을 <strong>BOM(Bill of Materials)</strong> 구조로 체계화합니다.<br>
+구조물→구역→카테고리→물품 의 계층 구조로 분류하여 수량, 단가, 필수여부를 관리합니다.</p>
+
+<div class="flow">
+  <div class="flow-box">아파트 전체</div>
+  <div class="flow-arr">▶</div>
+  <div class="flow-box">구역 (Zone)</div>
+  <div class="flow-arr">▶</div>
+  <div class="flow-box">카테고리</div>
+  <div class="flow-arr">▶</div>
+  <div class="flow-box">물품 (Item)</div>
+  <div class="flow-arr">▶</div>
+  <div class="flow-box">BOM 구성</div>
+</div>
+
+<h3>물품 3대 분류</h3>
+<table>
+  <tr><th>분류</th><th>설명</th><th>예시</th></tr>
+  <tr><td><span class="tag tag-struct">건축기본</span></td><td>시공 시 포함되는 구조 구성품</td><td>창호, 바닥재, 벽지, 배관, 전기, 냉난방</td></tr>
+  <tr><td><span class="tag tag-req">구역별 필수</span></td><td>각 구역에 반드시 있어야 할 물품</td><td>냉장고, 세탁기, 에어컨, 변기, 세면대</td></tr>
+  <tr><td><span class="tag tag-general">일반 가정용</span></td><td>일반적으로 사용하는 가구·가전·생활용품</td><td>소파, TV, 침대, 청소기, 밥솥</td></tr>
+</table>
+</div>
+
+<!-- 2. 구역 구성 -->
+<div class="card">
+<h2>2. 구역 (Zone) 구성</h2>
+<div class="zone-grid">
+  <div class="zone-card"><div class="icon">🛋️</div><div class="name">거실</div><div class="sub">LV · Living Room</div></div>
+  <div class="zone-card"><div class="icon">🍳</div><div class="name">주방</div><div class="sub">KT · Kitchen</div></div>
+  <div class="zone-card"><div class="icon">🛏️</div><div class="name">침실 1</div><div class="sub">BR1 · Master Bed</div></div>
+  <div class="zone-card"><div class="icon">🛏️</div><div class="name">침실 2</div><div class="sub">BR2 · Bed Room</div></div>
+  <div class="zone-card"><div class="icon">🛏️</div><div class="name">침실 3</div><div class="sub">BR3 · Bed Room</div></div>
+  <div class="zone-card"><div class="icon">🚿</div><div class="name">욕실 1</div><div class="sub">BT1 · Master Bath</div></div>
+  <div class="zone-card"><div class="icon">🚿</div><div class="name">욕실 2</div><div class="sub">BT2 · Bath Room</div></div>
+  <div class="zone-card"><div class="icon">🚪</div><div class="name">현관</div><div class="sub">EN · Entrance</div></div>
+  <div class="zone-card"><div class="icon">🌿</div><div class="name">베란다</div><div class="sub">BL · Balcony</div></div>
+  <div class="zone-card"><div class="icon">🧺</div><div class="name">다용도실</div><div class="sub">UT · Utility</div></div>
+  <div class="zone-card"><div class="icon">📦</div><div class="name">창고</div><div class="sub">ST · Storage</div></div>
+  <div class="zone-card"><div class="icon">🏢</div><div class="name">전체공통</div><div class="sub">CM · Common</div></div>
+</div>
+</div>
+
+<!-- 3. BOM 트리 구조 -->
+<div class="card">
+<h2>3. BOM 트리 구조 예시</h2>
+<div class="bom-tree">
+<span class="l0">🏢 아파트 전체 (APT-001)</span>
+<br>├── <span class="l1">📦 [구역] 주방 (ZONE-KT)</span>
+<br>│   ├── <span class="l2">🔌 [필수가전] 냉장고 (ITEM-001)</span>  qty:1
+<br>│   ├── <span class="l2">🔌 [필수가전] 전자레인지 (ITEM-002)</span>  qty:1
+<br>│   ├── <span class="l2">🚿 [건축기본] 씽크대 (ITEM-003)</span>  qty:1
+<br>│   │   ├── <span class="l3">수전 (ITEM-003-01)</span>  qty:1
+<br>│   │   └── <span class="l3">하부장 600mm (ITEM-003-02)</span>  qty:3
+<br>│   └── <span class="l2">🍳 [일반가정] 밥솥 (ITEM-004)</span>  qty:1
+<br>├── <span class="l1">📦 [구역] 거실 (ZONE-LV)</span>
+<br>│   ├── <span class="l2">❄️ [필수가전] 에어컨 (ITEM-010)</span>  qty:1
+<br>│   ├── <span class="l2">📺 [일반가정] TV (ITEM-011)</span>  qty:1
+<br>│   └── <span class="l2">🛋️ [일반가정] 소파 (ITEM-012)</span>  qty:1
+<br>└── <span class="l1">📦 [구역] 침실1 (ZONE-BR1)</span>
+<br>    ├── <span class="l2">🛏️ [일반가정] 침대 (ITEM-020)</span>  qty:1
+<br>    │   ├── <span class="l3">프레임 (ITEM-020-01)</span>  qty:1
+<br>    │   └── <span class="l3">매트리스 (ITEM-020-02)</span>  qty:1
+<br>    └── <span class="l2">👔 [일반가정] 옷장 (ITEM-021)</span>  qty:1
+</div>
+</div>
+
+<!-- 4. 테이블 설계 -->
+<div class="card">
+<h2>4. 테이블 설계 (5개)</h2>
+<div class="grid2">
+
+<div>
+<h3>① apt_zone — 구역 마스터</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>zone_id</td><td>INT PK</td><td>구역 ID</td></tr>
+  <tr><td>zone_code</td><td>NCHAR(4)</td><td>LV, KT, BR1...</td></tr>
+  <tr><td>zone_name</td><td>NVARCHAR(50)</td><td>거실, 주방...</td></tr>
+  <tr><td>sort_order</td><td>INT</td><td>정렬순서</td></tr>
+</table>
+</div>
+
+<div>
+<h3>② apt_category — 카테고리</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>cat_id</td><td>INT PK</td><td>카테고리 ID</td></tr>
+  <tr><td>cat_code</td><td>NCHAR(6)</td><td>STRUCT, REQ...</td></tr>
+  <tr><td>cat_name</td><td>NVARCHAR(50)</td><td>건축기본, 필수가전...</td></tr>
+  <tr><td>parent_cat_id</td><td>INT FK</td><td>상위카테고리 (셀프참조)</td></tr>
+  <tr><td>sort_order</td><td>INT</td><td>정렬순서</td></tr>
+</table>
+</div>
+
+<div>
+<h3>③ apt_item — 물품 마스터</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>item_id</td><td>INT PK</td><td>물품 ID</td></tr>
+  <tr><td>item_code</td><td>NVARCHAR(20)</td><td>물품코드</td></tr>
+  <tr><td>item_name</td><td>NVARCHAR(100)</td><td>물품명</td></tr>
+  <tr><td>cat_id</td><td>INT FK</td><td>카테고리</td></tr>
+  <tr><td>unit</td><td>NVARCHAR(10)</td><td>단위 (EA, SET...)</td></tr>
+  <tr><td>std_price</td><td>DECIMAL(12,0)</td><td>기준단가</td></tr>
+  <tr><td>brand</td><td>NVARCHAR(50)</td><td>브랜드</td></tr>
+  <tr><td>model</td><td>NVARCHAR(100)</td><td>모델명</td></tr>
+  <tr><td>spec</td><td>NVARCHAR(200)</td><td>규격</td></tr>
+  <tr><td>note</td><td>NVARCHAR(500)</td><td>비고</td></tr>
+  <tr><td>use_yn</td><td>CHAR(1)</td><td>사용여부 Y/N</td></tr>
+</table>
+</div>
+
+<div>
+<h3>④ apt_bom — BOM 구조</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>bom_id</td><td>INT PK</td><td>BOM ID</td></tr>
+  <tr><td>parent_item_id</td><td>INT FK</td><td>상위 물품 (NULL=최상위)</td></tr>
+  <tr><td>child_item_id</td><td>INT FK</td><td>하위 물품</td></tr>
+  <tr><td>zone_id</td><td>INT FK</td><td>설치 구역</td></tr>
+  <tr><td>qty</td><td>DECIMAL(10,2)</td><td>수량</td></tr>
+  <tr><td>is_required</td><td>CHAR(1)</td><td>필수여부 Y/N</td></tr>
+  <tr><td>sort_order</td><td>INT</td><td>정렬순서</td></tr>
+  <tr><td>level_no</td><td>INT</td><td>BOM 레벨 (0=최상위)</td></tr>
+  <tr><td>note</td><td>NVARCHAR(200)</td><td>비고</td></tr>
+</table>
+</div>
+
+</div>
+
+<div style="margin-top:16px">
+<h3>⑤ apt_apt — 아파트 기본정보 (확장용)</h3>
+<table>
+  <tr><th>컬럼</th><th>타입</th><th>설명</th></tr>
+  <tr><td>apt_id</td><td>INT PK</td><td>아파트 ID</td></tr>
+  <tr><td>apt_name</td><td>NVARCHAR(100)</td><td>아파트명</td></tr>
+  <tr><td>apt_type</td><td>NVARCHAR(20)</td><td>타입 (33평, 42평...)</td></tr>
+  <tr><td>dong</td><td>NVARCHAR(10)</td><td>동</td></tr>
+  <tr><td>ho</td><td>NVARCHAR(10)</td><td>호</td></tr>
+  <tr><td>area_m2</td><td>DECIMAL(6,2)</td><td>전용면적 m²</td></tr>
+  <tr><td>built_year</td><td>INT</td><td>준공년도</td></tr>
+  <tr><td>note</td><td>NVARCHAR(500)</td><td>비고</td></tr>
+</table>
+</div>
+</div>
+
+<!-- 5. 파일 구성 -->
+<div class="card">
+<h2>5. 파일 구성</h2>
+<ul class="file-list">
+  <li>Apart/
+  <li>├── sql/
+  <li>│   ├── 01_create_tables.sql <span>— 테이블 생성</span>
+  <li>│   ├── 02_zone_data.sql <span>— 구역 기본 데이터</span>
+  <li>│   ├── 03_category_data.sql <span>— 카테고리 데이터</span>
+  <li>│   ├── 04_item_data.sql <span>— 물품 마스터 데이터</span>
+  <li>│   └── 05_bom_data.sql <span>— BOM 구조 데이터</span>
+  <li>└── docs/
+  <li>    └── 구축방안.html <span>— 이 문서</span>
+</ul>
+</div>
+
+<!-- 6. 구축 순서 -->
+<div class="card">
+<h2>6. 구축 순서</h2>
+<table>
+  <tr><th>단계</th><th>작업</th><th>내용</th></tr>
+  <tr><td>1단계</td><td>테이블 생성</td><td>01_create_tables.sql 실행 (apart DB에)</td></tr>
+  <tr><td>2단계</td><td>구역 데이터</td><td>거실/주방/침실 등 12개 구역 입력</td></tr>
+  <tr><td>3단계</td><td>카테고리</td><td>건축기본/필수가전/가구/생활가전/생활용품 분류</td></tr>
+  <tr><td>4단계</td><td>물품 마스터</td><td>전체 물품 코드·명칭·단가·규격 입력</td></tr>
+  <tr><td>5단계</td><td>BOM 구조</td><td>상하위 관계·구역·수량 연결</td></tr>
+  <tr><td>6단계</td><td>조회 뷰</td><td>구역별/타입별 BOM 전개 뷰 생성</td></tr>
+</table>
+</div>
+
+</body>
+</html>

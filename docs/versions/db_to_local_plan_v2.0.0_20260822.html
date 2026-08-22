@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="prog-version" content="2.0.0" data-date="2026-08-22">
+<title>Smart Apt — 서비스 구축 방안 v2.0</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+  .page { max-width: 980px; margin: 0 auto; padding: 32px 24px; }
+
+  /* 헤더 */
+  .doc-header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #2563eb 100%);
+    border-radius: 14px; padding: 32px 36px; color: #fff; margin-bottom: 28px;
+  }
+  .doc-header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .doc-header .sub { font-size: 13px; opacity: .75; }
+  .doc-header .ver { font-size: 11px; opacity: .5; margin-top: 4px; }
+  .badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-white  { background: rgba(255,255,255,.2); color: #fff; }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+
+  /* 섹션 */
+  .section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 20px; overflow: hidden; }
+  .section-head {
+    padding: 14px 22px; background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-head .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1a3a6e; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0;
+  }
+  .section-head h2 { font-size: 15px; font-weight: 700; color: #1a3a6e; }
+  .section-body { padding: 22px; }
+
+  /* 흐름도 */
+  .flow-wrap { background: #0f172a; border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .flow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .flow-row:last-child { margin-bottom: 0; }
+  .fb { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .fb-blue  { background: #1e40af; color: #bfdbfe; border: 1px solid #3b82f6; }
+  .fb-green { background: #14532d; color: #86efac; border: 1px solid #22c55e; }
+  .fb-gray  { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+  .fb-orange{ background: #7c2d12; color: #fdba74; border: 1px solid #f97316; }
+  .fa { color: #60a5fa; font-size: 16px; font-weight: 700; }
+  .flow-label { font-size: 11px; color: #64748b; padding: 4px 0 4px 12px; }
+
+  /* 구조 박스 */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:620px) { .arch-grid { grid-template-columns: 1fr; } }
+  .arch-card { border-radius: 8px; padding: 16px 18px; border: 1.5px solid; }
+  .arch-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .arch-card ul { list-style: none; }
+  .arch-card li { font-size: 12px; color: #475569; padding: 4px 0; border-bottom: 1px dashed #f0f0f0; display: flex; gap: 8px; align-items: flex-start; }
+  .arch-card li:last-child { border-bottom: none; }
+  .arch-card li::before { content: '→'; flex-shrink: 0; }
+  .ac-blue  { background: #eff6ff; border-color: #bfdbfe; }
+  .ac-blue h4 { color: #1d4ed8; }
+  .ac-green { background: #f0fdf4; border-color: #bbf7d0; }
+  .ac-green h4 { color: #166534; }
+  .ac-orange{ background: #fff7ed; border-color: #fed7aa; }
+  .ac-orange h4 { color: #9a3412; }
+  .ac-purple{ background: #faf5ff; border-color: #e9d5ff; }
+  .ac-purple h4 { color: #6d28d9; }
+
+  /* 파일 트리 */
+  .file-tree { font-family: Consolas, monospace; font-size: 12px; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 20px; line-height: 2.1; }
+  .ft-dir  { color: #60a5fa; font-weight: 700; }
+  .ft-new  { color: #4ade80; }
+  .ft-mod  { color: #fbbf24; }
+  .ft-same { color: #64748b; }
+  .ft-tag  { font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
+  .ft-tag.new    { background: #14532d; color: #4ade80; }
+  .ft-tag.mod    { background: #451a03; color: #fbbf24; }
+  .ft-tag.same   { background: #1e293b; color: #64748b; }
+  .ft-tag.fire   { background: #7c1d1d; color: #fca5a5; }
+  .ft-comment    { color: #475569; font-size: 11px; }
+
+  /* API 테이블 */
+  .api-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .api-table th { background: #1a3a6e; color: #fff; padding: 9px 12px; text-align: left; }
+  .api-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .api-table tr:hover td { background: #f8faff; }
+  .method { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 800; margin-right: 4px; }
+  .get  { background: #dbeafe; color: #1d4ed8; }
+  .post { background: #dcfce7; color: #166534; }
+  .put  { background: #fef9c3; color: #854d0e; }
+  .del  { background: #fee2e2; color: #991b1b; }
+  .api-path { font-family: Consolas, monospace; }
+  .fi-col { color: #7c3aed; font-family: Consolas, monospace; font-size: 11px; }
+
+  /* 단계 */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step { display: flex; gap: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; }
+  .step-num { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+  .step:nth-child(1) .step-num { background: #dbeafe; color: #1d4ed8; }
+  .step:nth-child(2) .step-num { background: #dcfce7; color: #166534; }
+  .step:nth-child(3) .step-num { background: #fef9c3; color: #854d0e; }
+  .step:nth-child(4) .step-num { background: #ede9fe; color: #6d28d9; }
+  .step:nth-child(5) .step-num { background: #fee2e2; color: #991b1b; }
+  .step:nth-child(6) .step-num { background: #f0fdf4; color: #166534; }
+  .step-info h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .step-info p  { font-size: 12px; color: #64748b; line-height: 1.7; }
+  .step-file { font-family: Consolas; font-size: 11px; color: #7c3aed; background: #ede9fe; padding: 1px 6px; border-radius: 3px; }
+
+  /* 비교표 */
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cmp-table th { background: #1a3a6e; color: #fff; padding: 9px 14px; text-align: center; }
+  .cmp-table th:first-child { text-align: left; }
+  .cmp-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+  .cmp-table td:first-child { text-align: left; font-weight: 600; color: #374151; }
+  .cmp-table .rec { background: #f0fdf4; }
+  .cmp-table .rec td { color: #166534; }
+  .ok  { color: #16a34a; font-weight: 700; }
+  .no  { color: #dc2626; font-weight: 700; }
+  .mid { color: #d97706; font-weight: 700; }
+
+  /* 장단점 */
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:600px) { .pros-cons { grid-template-columns: 1fr; } }
+  .pros { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; }
+  .cons { background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 14px 16px; }
+  .pros h4 { color: #166534; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .cons h4 { color: #9a3412; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 12px; color: #475569; margin-left: 16px; margin-bottom: 5px; line-height: 1.5; }
+
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-bottom: 20px; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-family: Consolas; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="doc-header">
+    <h1>Smart Apt — 서비스 구축 방안</h1>
+    <div class="sub">MSSQL 제거 → GitHub Pages + Firebase 전환 설계서</div>
+    <div class="ver">v2.0.0 · 2026-08-22</div>
+    <div class="badges">
+      <span class="badge badge-white">GitHub Pages 호스팅</span>
+      <span class="badge badge-green">Firebase 계정·동기화</span>
+      <span class="badge badge-yellow">HTML 5개 무수정</span>
+      <span class="badge badge-red">MSSQL 완전 제거</span>
+    </div>
+  </div>
+
+  <!-- 1. 최종 구조 -->
+  <div class="section">
+    <div class="section-head"><div class="num">1</div><h2>최종 서비스 구조</h2></div>
+    <div class="section-body">
+      <div class="flow-wrap">
+        <div class="flow-row">
+          <div class="fb fb-gray">홍길동 (PC)</div>
+          <div class="fa">→</div>
+          <div class="fb fb-gray">김영희 (핸드폰)</div>
+          <div class="fa">→</div>
+          <div class="fb fb-gray">이철수 (다른 PC)</div>
+        </div>
+        <div class="flow-label">▼ 각자 브라우저에서 GitHub Pages URL 접속</div>
+        <div class="flow-row">
+          <div class="fb fb-blue">GitHub Pages (앱)</div>
+          <div class="fa">→</div>
+          <div class="fb fb-orange">구글 계정 로그인</div>
+          <div class="fa">→</div>
+          <div class="fb fb-green">내 데이터만 표시</div>
+        </div>
+        <div class="flow-label">▼ 데이터는 Firebase에 개인별 저장</div>
+        <div class="flow-row">
+          <div class="fb fb-blue">Firebase Auth</div>
+          <div class="fb fb-blue">Firestore DB</div>
+          <div class="fb fb-blue">Firebase Storage</div>
+        </div>
+        <div class="flow-label">▼ 결과</div>
+        <div class="flow-row">
+          <div class="fb fb-green">PC ↔ 핸드폰 ↔ 다른PC 자동 동기화</div>
+          <div class="fb fb-green">개인별 완전 분리</div>
+          <div class="fb fb-green">무료</div>
+        </div>
+      </div>
+
+      <div class="arch-grid">
+        <div class="arch-card ac-blue">
+          <h4>🌐 GitHub Pages (앱 호스팅)</h4>
+          <ul>
+            <li>HTML/CSS/JS 정적 파일 서비스</li>
+            <li>앱 업데이트 시 자동 반영</li>
+            <li>무료 · HTTPS 기본 제공</li>
+            <li>서버 관리 불필요</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-orange">
+          <h4>🔐 Firebase Auth (로그인)</h4>
+          <ul>
+            <li>구글 계정으로 1클릭 로그인</li>
+            <li>개인별 고유 UID 발급</li>
+            <li>세션 자동 유지</li>
+            <li>무료 (제한 없음)</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-green">
+          <h4>🗄 Firestore DB (데이터)</h4>
+          <ul>
+            <li>구역·항목·BOM 등 모든 데이터</li>
+            <li>/users/{uid}/ 경로로 개인 분리</li>
+            <li>실시간 동기화</li>
+            <li>무료: 50K 읽기 / 20K 쓰기 / 일</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-purple">
+          <h4>🖼 Firebase Storage (이미지)</h4>
+          <ul>
+            <li>평면도 이미지 저장</li>
+            <li>/users/{uid}/images/ 개인 분리</li>
+            <li>URL로 캔버스에 직접 표시</li>
+            <li>무료: 5GB 저장 / 1GB 전송</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 개인별 데이터 분리 -->
+  <div class="section">
+    <div class="section-head"><div class="num">2</div><h2>개인별 데이터 완전 분리</h2></div>
+    <div class="section-body">
+      <div class="flow-wrap">
+        <div class="flow-row">
+          <div class="fb fb-blue">홍길동 로그인<br><span style="font-size:10px;opacity:.7">uid: abc123</span></div>
+          <div class="fa">→</div>
+          <div class="fb fb-green">Firestore<br><span style="font-size:10px;opacity:.7">/users/abc123/items<br>/users/abc123/bom<br>/users/abc123/floorplans</span></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="flow-row">
+          <div class="fb fb-orange">김영희 로그인<br><span style="font-size:10px;opacity:.7">uid: xyz789</span></div>
+          <div class="fa">→</div>
+          <div class="fb fb-green">Firestore<br><span style="font-size:10px;opacity:.7">/users/xyz789/items<br>/users/xyz789/bom<br>/users/xyz789/floorplans</span></div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#64748b;margin-top:12px;line-height:1.8">
+        Firebase Security Rules로 <strong>본인 데이터만 읽기/쓰기</strong> 가능하도록 설정합니다.
+        타인의 데이터에는 절대 접근할 수 없습니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- 3. 파일 구성 -->
+  <div class="section">
+    <div class="section-head"><div class="num">3</div><h2>파일 구성 (변경 범위)</h2></div>
+    <div class="section-body">
+      <div class="file-tree">
+        <div><span class="ft-dir">smart_apt/</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">public/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-mod">index.html</span><span class="ft-tag mod">수정 소량</span> <span class="ft-comment">← Firebase SDK 로드 + 로그인 UI 추가</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">js/</span><span class="ft-tag new">신규 폴더</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">firebase.js</span><span class="ft-tag fire">Firebase</span> <span class="ft-comment">← Firebase 초기화 · 설정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">auth.js</span><span class="ft-tag fire">Firebase</span> <span class="ft-comment">← 구글 로그인/로그아웃</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">api-local.js</span><span class="ft-tag new">신규</span> <span class="ft-comment">← fetch 인터셉터 (Firestore 호출)</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">pages/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">대시보드.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리등록.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리구성도.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">평면도.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-new">.nojekyll</span><span class="ft-tag new">신규</span> <span class="ft-comment">← GitHub Pages 한글 파일명 인식</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-same">server.js</span><span class="ft-tag same">참조용 보존</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. API 대체 -->
+  <div class="section">
+    <div class="section-head"><div class="num">4</div><h2>API 대체 목록 (server.js → Firestore)</h2></div>
+    <div class="section-body">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th style="width:220px">현재 서버 API</th>
+            <th style="width:220px">Firestore 컬렉션</th>
+            <th>대체 방식</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/bom-tree</code></td>
+            <td class="fi-col">users/{uid}/items<br>users/{uid}/bom</td>
+            <td>컬렉션 전체 읽기 → 트리 조합</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/zones</code></td>
+            <td class="fi-col">users/{uid}/items</td>
+            <td>node_type='Z' 필터 쿼리</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/categories</code></td>
+            <td class="fi-col">users/{uid}/categories</td>
+            <td>초기 seed 후 읽기</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/cost</code></td>
+            <td class="fi-col">users/{uid}/items<br>users/{uid}/bom</td>
+            <td>클라이언트에서 집계</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/zones</code></td>
+            <td class="fi-col">users/{uid}/items<br>users/{uid}/bom</td>
+            <td>addDoc() 으로 추가</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/zones/:id</code></td>
+            <td class="fi-col">users/{uid}/items/{id}</td>
+            <td>updateDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/bom/:id</code></td>
+            <td class="fi-col">users/{uid}/bom<br>users/{uid}/items</td>
+            <td>재귀 deleteDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/items</code></td>
+            <td class="fi-col">users/{uid}/items<br>users/{uid}/bom</td>
+            <td>addDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/items/:id</code></td>
+            <td class="fi-col">users/{uid}/items/{id}</td>
+            <td>updateDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/floorplans</code></td>
+            <td class="fi-col">users/{uid}/floorplans</td>
+            <td>getDocs()</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/floorplans</code></td>
+            <td class="fi-col">users/{uid}/floorplans<br>Storage: images/{uid}/</td>
+            <td>이미지→Storage 업로드<br>메타→Firestore addDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/floorplans/:id</code></td>
+            <td class="fi-col">users/{uid}/floorplans<br>users/{uid}/fpZones</td>
+            <td>deleteDoc() + Storage 삭제</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/floorplans/:id/zones</code></td>
+            <td class="fi-col">users/{uid}/fpZones</td>
+            <td>fp_id 필터 쿼리</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/fp-zones</code></td>
+            <td class="fi-col">users/{uid}/fpZones</td>
+            <td>addDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/fp-zones/:id</code></td>
+            <td class="fi-col">users/{uid}/fpZones/{id}</td>
+            <td>updateDoc()</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/fp-zones/:id</code></td>
+            <td class="fi-col">users/{uid}/fpZones/{id}</td>
+            <td>deleteDoc()</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5. 구현 순서 -->
+  <div class="section">
+    <div class="section-head"><div class="num">5</div><h2>구현 순서</h2></div>
+    <div class="section-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-info">
+            <h4>Firebase 프로젝트 생성 (콘솔)</h4>
+            <p>console.firebase.google.com → 새 프로젝트 → Auth·Firestore·Storage 활성화<br>
+            웹 앱 설정 값(apiKey 등) 복사</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-info">
+            <h4>firebase.js + auth.js 작성</h4>
+            <p>Firebase 초기화, 구글 로그인/로그아웃, 현재 사용자 UID 관리<br>
+            파일: <span class="step-file">public/js/firebase.js</span> <span class="step-file">public/js/auth.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-info">
+            <h4>api-local.js 작성 (fetch 인터셉터)</h4>
+            <p>window.fetch 오버라이드 → /api/* 요청을 Firestore 호출로 대체<br>
+            파일: <span class="step-file">public/js/api-local.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-info">
+            <h4>index.html 수정 (로그인 UI + SDK 로드)</h4>
+            <p>Firebase SDK CDN 추가, 로그인 화면 추가 (비로그인 시 앱 진입 차단)<br>
+            파일: <span class="step-file">public/index.html</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-info">
+            <h4>Firestore Security Rules 설정</h4>
+            <p><code>allow read, write: if request.auth.uid == userId;</code><br>
+            본인 데이터만 접근 가능하도록 규칙 적용</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-info">
+            <h4>GitHub Pages 배포 + .nojekyll 추가</h4>
+            <p>git push → GitHub Pages 자동 배포. 한글 파일명을 위해 .nojekyll 필수<br>
+            파일: <span class="step-file">.nojekyll</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 장단점 -->
+  <div class="section">
+    <div class="section-head"><div class="num">6</div><h2>장단점</h2></div>
+    <div class="section-body">
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>✅ 장점</h4>
+          <ul>
+            <li>구글 계정 하나로 PC·폰·다른PC 동기화</li>
+            <li>개인별 데이터 완전 분리·보안</li>
+            <li>서버 운영 비용 없음 (무료 플랜으로 충분)</li>
+            <li>GitHub Pages로 항상 최신 앱 유지</li>
+            <li>기존 HTML 5개 코드 수정 불필요</li>
+            <li>실시간 동기화 (여러 기기 동시 사용 가능)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>⚠️ 제약</h4>
+          <ul>
+            <li>인터넷 연결 필요</li>
+            <li>구글 계정 필수</li>
+            <li>Firebase 무료 한도 초과 시 과금<br>
+                <span style="color:#9a3412;font-size:11px">→ 개인 사용 수준에서는 무료로 충분</span></li>
+            <li>Firebase 의존성 발생</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="footer">Smart Apt 구축 방안 v2.0.0 · 2026-08-22</div>
+</body>
+</html>

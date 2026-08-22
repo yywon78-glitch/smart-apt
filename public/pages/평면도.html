@@ -1,0 +1,814 @@
+<meta name="prog-version" content="1.4.0" data-date="2026-08-21">
+<style>
+  .fp-bar {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .fp-bar select {
+    padding: 7px 10px; border: 1px solid #cdd5e0;
+    border-radius: 6px; font-size: 13px; min-width: 220px;
+    font-family: inherit; background: #fff;
+  }
+  .btn-danger { background: #dc2626 !important; }
+  .btn-danger:hover { background: #b91c1c !important; }
+  .btn-danger:disabled { background: #9ca3af !important; cursor: not-allowed; }
+  .btn:disabled { background: #9ca3af !important; cursor: not-allowed; }
+  .edit-hint {
+    font-size: 12px; color: #16a34a; font-weight: 600;
+    background: #dcfce7; padding: 4px 10px; border-radius: 4px;
+    border: 1px solid #bbf7d0;
+  }
+  .fp-layout {
+    display: flex; gap: 12px;
+    height: calc(100vh - 178px);
+  }
+  .fp-canvas-wrap {
+    flex: 1; position: relative;
+    background: #e2e8f0; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.07);
+  }
+  #fpCanvas {
+    display: none;
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  .no-fp {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; color: #94a3b8; font-size: 14px;
+  }
+  .no-fp .icon { font-size: 52px; opacity: .6; }
+  .fp-sidebar {
+    width: 268px; display: flex;
+    flex-direction: column; gap: 8px; overflow: hidden;
+    transition: width .22s ease, gap .22s ease;
+    flex-shrink: 0;
+  }
+  .fp-sidebar.closed { width: 0; gap: 0; }
+
+  /* 캔버스 오른쪽 끝에 붙는 토글 탭 */
+  .panel-toggle {
+    position: absolute; right: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 18px; height: 52px;
+    background: #1a3a6e; color: #fff;
+    border: none; border-radius: 5px 0 0 5px;
+    cursor: pointer; font-size: 13px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5; box-shadow: -2px 0 6px rgba(0,0,0,.15);
+    transition: background .15s;
+  }
+  .panel-toggle:hover { background: #24508f; }
+  .fp-card {
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.07);
+    display: flex; flex-direction: column;
+    flex: 1; overflow: hidden; min-height: 0;
+  }
+  .fp-card-head {
+    padding: 10px 14px; font-size: 13px;
+    font-weight: 700; color: #1a3a6e;
+    border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+  }
+  .zone-list, .bom-panel { flex: 1; overflow-y: auto; }
+  .empty-hint {
+    padding: 22px 14px; text-align: center;
+    color: #94a3b8; font-size: 12px; line-height: 1.7;
+  }
+  .zone-item {
+    display: flex; align-items: center; padding: 9px 14px;
+    gap: 9px; cursor: pointer; border-bottom: 1px solid #f9f9f9;
+    transition: background .1s;
+  }
+  .zone-item:hover { background: #f8faff; }
+  .zone-item.active {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6; padding-left: 11px;
+  }
+  .zone-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .zone-info { flex: 1; min-width: 0; }
+  .zone-lbl { font-size: 13px; font-weight: 600; color: #1e293b; }
+  .zone-sub { font-size: 11px; color: #6b7280; margin-top: 1px; }
+  .zone-del {
+    background: none; border: none; color: #cbd5e1;
+    cursor: pointer; font-size: 13px; padding: 2px 5px;
+    border-radius: 3px; flex-shrink: 0;
+  }
+  .zone-del:hover { background: #fee2e2; color: #dc2626; }
+  .bom-row { padding: 8px 14px; border-bottom: 1px solid #f5f5f5; }
+  .bom-name { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 3px; }
+  .bom-meta {
+    display: flex; gap: 6px; align-items: center;
+    font-size: 11px; color: #6b7280; flex-wrap: wrap;
+  }
+  .bom-price { color: #1a3a6e; font-weight: 700; margin-left: auto; }
+  .bom-total {
+    padding: 9px 14px; display: flex;
+    justify-content: space-between; font-size: 12px;
+    font-weight: 700; color: #1a3a6e;
+    background: #eff6ff; border-top: 1px solid #dbeafe;
+    flex-shrink: 0;
+  }
+
+  /* 등록 모달 */
+  .fp-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.5); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .fp-modal.open { display: flex; }
+  .fp-mbox {
+    background: #fff; border-radius: 12px; width: 460px;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    font-family: 'Malgun Gothic', sans-serif;
+  }
+  .fp-mhead {
+    padding: 16px 20px; border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .fp-mhead h3 { font-size: 15px; color: #1a3a6e; }
+  .fp-mhead .close-btn {
+    background: none; border: none; font-size: 20px;
+    cursor: pointer; color: #94a3b8; line-height: 1;
+  }
+  .fp-mhead .close-btn:hover { color: #374151; }
+  .fp-mbody { padding: 20px; }
+  .fp-mfoot {
+    padding: 12px 20px; border-top: 1px solid #e2e8f0;
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  #regPreview {
+    max-width: 100%; max-height: 180px;
+    border-radius: 6px; margin-top: 8px;
+    border: 1px solid #e2e8f0; display: none;
+  }
+
+
+  /* 영역 대화상자 */
+  .zone-dlg {
+    display: none; position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #fff; border-radius: 10px;
+    padding: 20px; width: 300px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+    z-index: 1001; flex-direction: column; gap: 12px;
+    font-family: 'Malgun Gothic', sans-serif;
+  }
+  .zone-dlg.open { display: flex; }
+  .zone-dlg-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.3); z-index: 1000;
+  }
+  .zone-dlg-backdrop.open { display: block; }
+  .zone-dlg h4 { font-size: 14px; color: #1a3a6e; margin: 0; }
+  .zd-row { display: flex; align-items: center; gap: 8px; }
+  .zd-row label { width: 62px; font-size: 12px; color: #555; flex-shrink: 0; }
+  .zd-row input[type=text], .zd-row select {
+    flex: 1; padding: 6px 8px; border: 1px solid #cdd5e0;
+    border-radius: 6px; font-size: 12px; font-family: inherit;
+  }
+  .zd-row input[type=color] {
+    width: 44px; height: 30px; border: 1px solid #cdd5e0;
+    border-radius: 4px; cursor: pointer; padding: 1px;
+  }
+  .zd-btns { display: flex; gap: 8px; margin-top: 2px; }
+  .zd-btns button { flex: 1; padding: 7px 0; border-radius: 6px;
+    font-size: 12px; font-family: inherit; cursor: pointer; border: none; }
+  .zd-save { background: #1a3a6e; color: #fff; }
+  .zd-save:hover { background: #24508f; }
+  .zd-cancel { background: #f1f5f9; color: #475569; }
+  .zd-cancel:hover { background: #e2e8f0; }
+</style>
+
+<!-- 툴바 -->
+<div class="fp-bar">
+  <select id="selFp" onchange="onFpChange()">
+    <option value="">— 도면 선택 —</option>
+  </select>
+  <span style="flex:1"></span>
+  <span class="edit-hint" id="editHint" style="display:none">드래그로 영역 그리기</span>
+  <button class="btn" id="btnEdit" disabled onclick="toggleEdit()">✏ 영역 편집</button>
+  <span style="width:24px"></span>
+  <button class="btn btn-danger" id="btnDelFp" disabled onclick="deleteFp()">🗑 삭제</button>
+</div>
+
+<!-- 메인 레이아웃 -->
+<div class="fp-layout">
+
+  <!-- 캔버스 뷰어 -->
+  <div class="fp-canvas-wrap" id="canvasWrap">
+    <canvas id="fpCanvas"></canvas>
+    <button class="panel-toggle" id="btnPanelToggle" onclick="togglePanel()" title="패널 열기/닫기">‹</button>
+    <div class="no-fp" id="noFp">
+      <div class="icon">🏠</div>
+      <div>도면을 선택하거나</div>
+      <div style="font-size:12px;color:#b0bec5;margin-top:8px">
+        여기를 클릭 후 <b style="color:#64748b">Ctrl+V</b> 로 이미지 붙여넣기
+      </div>
+    </div>
+  </div>
+
+  <!-- 우측 패널 -->
+  <div class="fp-sidebar" id="fpSidebar">
+    <!-- 영역 목록 -->
+    <div class="fp-card">
+      <div class="fp-card-head">📌 영역 목록</div>
+      <div class="zone-list" id="zoneList">
+        <div class="empty-hint">도면을 선택하세요</div>
+      </div>
+    </div>
+    <!-- 인벤토리 패널 -->
+    <div class="fp-card" style="flex:1.2">
+      <div class="fp-card-head" id="bomHead">📦 인벤토리</div>
+      <div class="bom-panel" id="bomPanel">
+        <div class="empty-hint">영역을 클릭하세요</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 도면 등록 모달 -->
+<div class="fp-modal" id="regModal">
+  <div class="fp-mbox">
+    <div class="fp-mhead">
+      <h3>도면 등록</h3>
+      <button class="close-btn" onclick="closeRegModal()">✕</button>
+    </div>
+    <div class="fp-mbody">
+      <div class="form-row">
+        <label>도면명 *</label>
+        <input type="text" id="regName" placeholder="예: 김포 대우 129동 1604호">
+      </div>
+      <div class="form-row">
+        <label>동</label>
+        <input type="text" id="regBuilding" placeholder="129동" style="width:90px;flex:none">
+        <label style="width:40px;margin-left:8px">호수</label>
+        <input type="text" id="regUnit" placeholder="1604호">
+      </div>
+      <div class="form-row">
+        <label>평형</label>
+        <input type="text" id="regArea" placeholder="84㎡ A타입">
+      </div>
+      <div id="regImgWrap" style="display:none;margin-bottom:10px;text-align:center">
+        <img id="regPreview" style="max-width:100%;max-height:160px;border-radius:6px;border:1px solid #e2e8f0">
+      </div>
+    </div>
+    <div class="fp-mfoot">
+      <button class="btn btn-save" onclick="submitReg()">저장</button>
+      <button class="btn btn-reset" onclick="closeRegModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 영역 이름 대화상자 배경 -->
+<div class="zone-dlg-backdrop" id="zdBackdrop" onclick="cancelZone()"></div>
+
+<!-- 영역 대화상자 -->
+<div class="zone-dlg" id="zoneDialog">
+  <h4>영역 정보 입력</h4>
+  <div class="zd-row">
+    <label>영역명 *</label>
+    <input type="text" id="zdLabel" placeholder="예: 거실" maxlength="30">
+  </div>
+  <div class="zd-row">
+    <label>구역 연결</label>
+    <select id="zdZone">
+      <option value="">— 연결 안함 —</option>
+    </select>
+  </div>
+  <div class="zd-row">
+    <label>색상</label>
+    <input type="color" id="zdColor" value="#3b82f6">
+  </div>
+  <div class="zd-btns">
+    <button class="zd-save" onclick="saveZone()">저장</button>
+    <button class="zd-cancel" onclick="cancelZone()">취소</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const PALETTE = ['#3b82f6','#ef4444','#10b981','#f59e0b',
+                   '#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+
+  // ── 상태 ──
+  let fps      = [];    // 등록된 도면 목록
+  let curFp    = null;  // 현재 선택 도면
+  let fpImg    = null;  // Image 객체
+  let zones    = [];    // 영역 목록 [{fpz_id, zone_id, label, coords:{x1,y1,x2,y2}, color, zone_name}]
+  let selZone  = null;  // 선택된 영역
+  let aptZones = [];    // apt_zone 목록 (연결용)
+  let editMode = false;
+  let colorIdx = 0;
+  let _pendingImageBase64 = null;
+
+  // 드로잉 상태
+  let isDraw = false, drawP0 = null, drawP1 = null, pendingCoords = null;
+
+  // ── 캔버스 ──
+  const canvas = document.getElementById('fpCanvas');
+  const ctx    = canvas.getContext('2d');
+
+  function imgBounds() {
+    if (!fpImg || !fpImg.naturalWidth) return null;
+    const cw = canvas.width, ch = canvas.height;
+    const iw = fpImg.naturalWidth, ih = fpImg.naturalHeight;
+    const s = Math.min(cw / iw, ch / ih);
+    const dw = iw * s, dh = ih * s;
+    return { x: (cw - dw) / 2, y: (ch - dh) / 2, w: dw, h: dh };
+  }
+
+  function pct2px(c, b) {
+    return {
+      x: b.x + c.x1 / 100 * b.w, y: b.y + c.y1 / 100 * b.h,
+      w: (c.x2 - c.x1) / 100 * b.w, h: (c.y2 - c.y1) / 100 * b.h
+    };
+  }
+
+  function px2pct(ax, ay, bx, by, b) {
+    const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    return {
+      x1: cl((Math.min(ax, bx) - b.x) / b.w * 100, 0, 100),
+      y1: cl((Math.min(ay, by) - b.y) / b.h * 100, 0, 100),
+      x2: cl((Math.max(ax, bx) - b.x) / b.w * 100, 0, 100),
+      y2: cl((Math.max(ay, by) - b.y) / b.h * 100, 0, 100)
+    };
+  }
+
+  function render() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // 배경
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!fpImg || !fpImg.naturalWidth) return;
+
+    const b = imgBounds();
+    ctx.drawImage(fpImg, b.x, b.y, b.w, b.h);
+
+    // 영역 그리기
+    zones.forEach(z => {
+      const r   = pct2px(z.coords, b);
+      const col = z.color || '#3b82f6';
+      const sel = selZone?.fpz_id === z.fpz_id;
+
+      ctx.fillStyle   = col + (sel ? '55' : '30');
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+
+      ctx.strokeStyle = sel ? '#fff' : col;
+      ctx.lineWidth   = sel ? 3 : 2;
+      ctx.setLineDash([]);
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+
+      if (sel) {
+        ctx.strokeStyle = col;
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
+        ctx.setLineDash([]);
+      }
+
+      // 레이블 배지
+      ctx.font = 'bold 12px Malgun Gothic, sans-serif';
+      const tw  = ctx.measureText(z.label).width + 14;
+      const lh  = 22;
+      const lx  = r.x + 2;
+      const ly  = r.y + r.h - lh - 2;
+
+      ctx.fillStyle   = col + 'ee';
+      ctx.beginPath();
+      ctx.roundRect(lx, ly, tw, lh, 4);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(z.label, lx + 7, ly + 15);
+    });
+
+    // 드로잉 미리보기
+    if (isDraw && drawP0 && drawP1) {
+      const rx = Math.min(drawP0.x, drawP1.x);
+      const ry = Math.min(drawP0.y, drawP1.y);
+      const rw = Math.abs(drawP1.x - drawP0.x);
+      const rh = Math.abs(drawP1.y - drawP0.y);
+      ctx.fillStyle   = 'rgba(26,58,110,0.12)';
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = '#1a3a6e';
+      ctx.lineWidth   = 2;
+      ctx.setLineDash([7, 4]);
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.setLineDash([]);
+    }
+  }
+
+  function resizeCanvas() {
+    const wrap = document.getElementById('canvasWrap');
+    canvas.width  = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    render();
+  }
+
+  // ── 마우스 이벤트 ──
+  function canvasPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    if (!editMode || !fpImg) return;
+    drawP0 = canvasPos(e);
+    drawP1 = { ...drawP0 };
+    isDraw = true;
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    const p = canvasPos(e);
+    if (isDraw) { drawP1 = p; render(); return; }
+    if (!editMode && fpImg) {
+      const b = imgBounds();
+      if (!b) return;
+      const hit = zones.find(z => {
+        const r = pct2px(z.coords, b);
+        return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+      });
+      canvas.style.cursor = hit ? 'pointer' : 'default';
+    }
+  });
+
+  canvas.addEventListener('mouseup', e => {
+    if (!isDraw) return;
+    isDraw = false;
+    const p = canvasPos(e);
+    if (Math.abs(p.x - drawP0.x) < 12 || Math.abs(p.y - drawP0.y) < 12) {
+      drawP0 = drawP1 = null; render(); return;
+    }
+    const b = imgBounds();
+    pendingCoords = px2pct(drawP0.x, drawP0.y, p.x, p.y, b);
+    drawP0 = drawP1 = null;
+    render();
+    // 색상 자동 지정
+    document.getElementById('zdColor').value = PALETTE[colorIdx % PALETTE.length];
+    openZoneDialog();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    if (isDraw) { isDraw = false; drawP0 = drawP1 = null; render(); }
+  });
+
+  canvas.addEventListener('click', e => {
+    if (editMode) return;
+    const p = canvasPos(e);
+    const b = imgBounds();
+    if (!b) return;
+    const hit = [...zones].reverse().find(z => {
+      const r = pct2px(z.coords, b);
+      return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+    });
+    if (hit) { selectZone(hit); }
+    else { selZone = null; render(); renderZoneList(); renderBom(null); }
+  });
+
+  window.addEventListener('resize', () => { if (curFp || fpImg) resizeCanvas(); });
+
+  // ── 영역 대화상자 ──
+  function openZoneDialog() {
+    document.getElementById('zdLabel').value = '';
+    document.getElementById('zdZone').value  = '';
+    document.getElementById('zdBackdrop').classList.add('open');
+    document.getElementById('zoneDialog').classList.add('open');
+    setTimeout(() => document.getElementById('zdLabel').focus(), 50);
+  }
+
+  document.getElementById('zdLabel').addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.saveZone();
+    if (e.key === 'Escape') window.cancelZone();
+  });
+
+  window.saveZone = async function () {
+    const label = document.getElementById('zdLabel').value.trim();
+    if (!label) { document.getElementById('zdLabel').focus(); return; }
+    const zid   = document.getElementById('zdZone').value || null;
+    const color = document.getElementById('zdColor').value;
+
+    const res = await fetch(`/api/floorplans/${curFp.fp_id}/zones`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, zone_id: zid ? parseInt(zid) : null, coords: pendingCoords, color })
+    });
+    const r = await res.json();
+    if (!res.ok) { alert(r.error); return; }
+
+    const az = aptZones.find(z => z.zone_id === parseInt(zid));
+    zones.push({ fpz_id: r.fpz_id, fp_id: curFp.fp_id,
+                 zone_id: zid ? parseInt(zid) : null,
+                 label, coords: pendingCoords, color,
+                 zone_name: az?.zone_name || null });
+    colorIdx++;
+    pendingCoords = null;
+    closeZoneDialog();
+    render();
+    renderZoneList();
+  };
+
+  window.cancelZone = function () {
+    pendingCoords = null;
+    closeZoneDialog();
+    render();
+  };
+
+  function closeZoneDialog() {
+    document.getElementById('zdBackdrop').classList.remove('open');
+    document.getElementById('zoneDialog').classList.remove('open');
+  }
+
+  // ── 영역 조작 ──
+  window.deleteZone = async function (fpzId) {
+    if (!confirm('영역을 삭제하시겠습니까?')) return;
+    const res = await fetch(`/api/fp-zones/${fpzId}`, { method: 'DELETE' });
+    if (!res.ok) { alert('삭제 오류'); return; }
+    zones = zones.filter(z => z.fpz_id !== fpzId);
+    if (selZone?.fpz_id === fpzId) { selZone = null; renderBom(null); }
+    render();
+    renderZoneList();
+  };
+
+  window.selectZoneById = function (fpzId) {
+    const z = zones.find(z => z.fpz_id === fpzId);
+    if (z) selectZone(z);
+  };
+
+  function selectZone(zone) {
+    selZone = zone;
+    render();
+    renderZoneList();
+    renderBom(zone);
+  }
+
+  // ── 영역 목록 렌더 ──
+  function renderZoneList() {
+    const el = document.getElementById('zoneList');
+    if (!curFp) { el.innerHTML = '<div class="empty-hint">도면을 선택하세요</div>'; return; }
+    if (!zones.length) {
+      el.innerHTML = `<div class="empty-hint">등록된 영역 없음${editMode ? '<br><small>드래그하여 추가</small>' : ''}</div>`;
+      return;
+    }
+    el.innerHTML = zones.map(z => `
+      <div class="zone-item ${selZone?.fpz_id === z.fpz_id ? 'active' : ''}"
+           onclick="selectZoneById(${z.fpz_id})">
+        <span class="zone-dot" style="background:${z.color || '#3b82f6'}"></span>
+        <div class="zone-info">
+          <div class="zone-lbl">${z.label}</div>
+          ${z.zone_name ? `<div class="zone-sub">${z.zone_name}</div>` : '<div class="zone-sub" style="color:#f59e0b">구역 미연결</div>'}
+        </div>
+        ${editMode ? `<button class="zone-del" title="삭제" onclick="event.stopPropagation();deleteZone(${z.fpz_id})">✕</button>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ── BOM 패널 렌더 ──
+  async function renderBom(zone) {
+    const head  = document.getElementById('bomHead');
+    const panel = document.getElementById('bomPanel');
+    if (!zone) {
+      head.textContent = '📦 인벤토리';
+      panel.innerHTML  = '<div class="empty-hint">영역을 클릭하세요</div>';
+      return;
+    }
+    head.textContent = `📦 ${zone.label}`;
+    if (!zone.zone_id) {
+      panel.innerHTML = '<div class="empty-hint">구역이 연결되지 않음<br><small>편집 모드 → 구역 연결 후 인벤토리 조회 가능</small></div>';
+      return;
+    }
+    panel.innerHTML = '<div class="empty-hint">로딩 중...</div>';
+    const rows = await fetch(`/api/bom?zone=${zone.zone_id}`).then(r => r.json());
+    if (!rows.length) {
+      panel.innerHTML = '<div class="empty-hint">등록된 항목 없음</div>';
+      return;
+    }
+    const total = rows.reduce((s, r) => s + r.std_price * r.qty, 0);
+    panel.innerHTML = rows.map(r => `
+      <div class="bom-row">
+        <div class="bom-name">${r.item_name}</div>
+        <div class="bom-meta">
+          <span>${r.qty}${r.unit}</span>
+          <span class="bom-price">${(r.std_price * r.qty).toLocaleString()}원</span>
+          <span class="badge ${r.is_required === 'Y' ? 'badge-y' : 'badge-n'}">${r.is_required === 'Y' ? '필수' : '선택'}</span>
+        </div>
+      </div>
+    `).join('') + `
+      <div class="bom-total">
+        <span>합계</span>
+        <span>${total.toLocaleString()}원</span>
+      </div>`;
+  }
+
+  // ── 편집 모드 ──
+  window.toggleEdit = function () {
+    editMode = !editMode;
+    const btn = document.getElementById('btnEdit');
+    btn.textContent  = editMode ? '✓ 완료' : '✏ 영역 편집';
+    btn.style.background = editMode ? '#16a34a' : '';
+    document.getElementById('editHint').style.display = editMode ? 'inline' : 'none';
+    canvas.style.cursor = editMode ? 'crosshair' : 'default';
+    renderZoneList();
+  };
+
+  // ── 도면 목록 로드 ──
+  async function loadFpList() {
+    fps = await fetch('/api/floorplans').then(r => r.json());
+    const sel = document.getElementById('selFp');
+    sel.innerHTML = '<option value="">— 도면 선택 —</option>' +
+      fps.map(f => `<option value="${f.fp_id}">${f.fp_name}</option>`).join('');
+  }
+
+  // ── apt_zone 목록 로드 ──
+  async function loadAptZones() {
+    aptZones = await fetch('/api/zones').then(r => r.json()).catch(() => []);
+    const sel = document.getElementById('zdZone');
+    sel.innerHTML = '<option value="">— 연결 안함 —</option>' +
+      aptZones.map(z => `<option value="${z.zone_id}">${z.zone_name}</option>`).join('');
+  }
+
+  // ── 도면 선택 변경 ──
+  window.onFpChange = async function () {
+    const fpId = parseInt(document.getElementById('selFp').value);
+    document.getElementById('btnDelFp').disabled = !fpId;
+    document.getElementById('btnEdit').disabled  = !fpId;
+
+    if (!fpId) {
+      curFp = null; fpImg = null; zones = []; selZone = null;
+      document.getElementById('noFp').style.display = 'flex';
+      canvas.style.display = 'none';
+      render(); renderZoneList(); renderBom(null);
+      return;
+    }
+
+    curFp = fps.find(f => f.fp_id === fpId);
+
+    // 영역 로드
+    const rows = await fetch(`/api/floorplans/${fpId}/zones`).then(r => r.json());
+    zones = rows.map(z => ({ ...z, coords: JSON.parse(z.coords) }));
+    selZone  = null;
+    colorIdx = zones.length;
+
+    if (editMode) window.toggleEdit(); // 도면 바꾸면 편집모드 해제
+
+    // 이미지 로드
+    if (curFp.img_path) {
+      fpImg = new Image();
+      fpImg.onload = () => {
+        document.getElementById('noFp').style.display = 'none';
+        canvas.style.display = 'block';
+        resizeCanvas();
+      };
+      fpImg.onerror = () => {
+        document.getElementById('noFp').innerHTML =
+          '<div class="icon">❌</div><div>이미지를 불러올 수 없습니다</div>';
+      };
+      fpImg.src = curFp.img_path;
+    } else {
+      fpImg = null;
+      document.getElementById('noFp').innerHTML =
+        '<div class="icon">📋</div><div>이미지가 없습니다</div>';
+      document.getElementById('noFp').style.display = 'flex';
+      canvas.style.display = 'none';
+      render();
+    }
+
+    renderZoneList();
+    renderBom(null);
+  };
+
+  // ── 도면 삭제 ──
+  window.deleteFp = async function () {
+    if (!curFp) return;
+    if (!confirm(`"${curFp.fp_name}" 도면을 삭제하시겠습니까?\n영역 정보도 모두 삭제됩니다.`)) return;
+    const res = await fetch(`/api/floorplans/${curFp.fp_id}`, { method: 'DELETE' });
+    if (!res.ok) { alert('삭제 오류'); return; }
+    curFp = null; fpImg = null; zones = []; selZone = null;
+    document.getElementById('btnDelFp').disabled = true;
+    document.getElementById('btnEdit').disabled  = true;
+    document.getElementById('noFp').innerHTML =
+      '<div class="icon">🏠</div><div>도면을 선택하거나 등록하세요</div>';
+    document.getElementById('noFp').style.display = 'flex';
+    canvas.style.display = 'none';
+    render(); renderZoneList(); renderBom(null);
+    await loadFpList();
+    if (editMode) window.toggleEdit();
+  };
+
+  // ── 도면 등록 모달 ──
+  window.openRegModal = function () {
+    ['regName','regBuilding','regUnit','regArea'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('regPreview').style.display = 'none';
+    document.getElementById('regImgWrap').style.display = 'none';
+    _pendingImageBase64 = null;
+    document.getElementById('regModal').classList.add('open');
+    setTimeout(() => document.getElementById('regName').focus(), 80);
+  };
+
+  window.closeRegModal = function () {
+    document.getElementById('regModal').classList.remove('open');
+  };
+
+  function applyImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      _pendingImageBase64 = e.target.result;
+      const img = document.getElementById('regPreview');
+      img.src = _pendingImageBase64;
+      img.style.display = 'block';
+      document.getElementById('regImgWrap').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  window.submitReg = async function () {
+    const name = document.getElementById('regName').value.trim();
+    if (!name) { document.getElementById('regName').focus(); return; }
+
+    let image_base64 = _pendingImageBase64 || null;
+
+    const res = await fetch('/api/floorplans', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fp_name:     name,
+        fp_building: document.getElementById('regBuilding').value.trim() || null,
+        fp_unit:     document.getElementById('regUnit').value.trim() || null,
+        fp_area:     document.getElementById('regArea').value.trim() || null,
+        image_base64
+      })
+    });
+    const r = await res.json();
+    if (!res.ok) { alert(r.error); return; }
+
+    window.closeRegModal();
+    await loadFpList();
+    document.getElementById('selFp').value = r.fp_id;
+    await window.onFpChange();
+  };
+
+  // 모달 배경 클릭 닫기
+  document.getElementById('regModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('regModal')) window.closeRegModal();
+  });
+
+  // ── 붙여넣기 공통 핸들러 ──
+  function _handlePaste(e) {
+    const data = e.clipboardData;
+    if (!data) return;
+
+    // files (드래그앤드롭 경로)
+    const imgFile = [...(data.files || [])].find(f => f.type.startsWith('image/'));
+    if (imgFile) {
+      e.preventDefault();
+      if (!document.getElementById('regModal').classList.contains('open')) window.openRegModal();
+      applyImageFile(imgFile);
+      return;
+    }
+
+    // items (Ctrl+V 경로)
+    for (const item of [...(data.items || [])]) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (!file) continue;
+        e.preventDefault();
+        if (!document.getElementById('regModal').classList.contains('open')) window.openRegModal();
+        applyImageFile(file);
+        return;
+      }
+    }
+  }
+
+  // canvasWrap 포커스 가능하게 — 클릭하면 paste 이벤트를 받는다
+  const _cw = document.getElementById('canvasWrap');
+  _cw.setAttribute('tabindex', '0');
+  _cw.style.outline = 'none';
+  _cw.addEventListener('click', () => _cw.focus());
+  _cw.addEventListener('paste', _handlePaste);
+
+  // document 레벨도 같이 잡아둠 (다른 요소에 포커스 있을 때)
+  document.addEventListener('paste', _handlePaste);
+
+  // ── 패널 토글 ──
+  window.togglePanel = function () {
+    const sidebar = document.getElementById('fpSidebar');
+    const btn     = document.getElementById('btnPanelToggle');
+    const closed  = sidebar.classList.toggle('closed');
+    btn.textContent = closed ? '›' : '‹';
+    // 전환 완료 후 캔버스 크기 재조정
+    setTimeout(resizeCanvas, 240);
+  };
+
+  // ── 초기화 ──
+  resizeCanvas();
+  (async () => {
+    await loadFpList();
+    await loadAptZones();
+  })();
+})();
+</script>

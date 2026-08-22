@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="prog-version" content="1.0.0" data-date="2026-08-22">
+<title>Smart Apt — 수익 모델</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+  .page { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  .doc-header {
+    background: linear-gradient(135deg, #065f46 0%, #0f766e 100%);
+    border-radius: 14px; padding: 28px 36px; color: #fff; margin-bottom: 24px;
+  }
+  .doc-header h1 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .doc-header .sub { font-size: 12px; opacity: .7; }
+  .doc-header .ver { font-size: 11px; opacity: .45; margin-top: 4px; }
+
+  .section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 16px; overflow: hidden; }
+  .section-head { padding: 13px 20px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+  .section-head .num { width: 24px; height: 24px; border-radius: 50%; background: #065f46; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+  .section-head h2 { font-size: 14px; font-weight: 700; color: #065f46; }
+  .section-body { padding: 20px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #065f46; color: #fff; padding: 9px 12px; text-align: left; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+  tr:hover td { background: #f0fdfa; }
+
+  .model-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:600px) { .model-grid { grid-template-columns: 1fr; } }
+  .model-card { border-radius: 8px; padding: 16px; border: 1.5px solid #e2e8f0; }
+  .model-card h4 { font-size: 13px; font-weight: 700; color: #065f46; margin-bottom: 8px; }
+  .model-card p { font-size: 12px; color: #475569; line-height: 1.7; }
+
+  .flow-box { background: #0f172a; border-radius: 8px; padding: 18px 20px; font-family: Consolas, monospace; font-size: 12px; color: #e2e8f0; line-height: 2.2; margin-bottom: 12px; }
+  .fc-green  { color: #4ade80; }
+  .fc-blue   { color: #60a5fa; }
+  .fc-yellow { color: #fbbf24; }
+  .fc-gray   { color: #64748b; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-left: 6px; }
+  .tag-rec  { background: #dcfce7; color: #166534; }
+  .tag-later{ background: #fef9c3; color: #854d0e; }
+
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pros { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 14px; }
+  .cons { background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 14px; }
+  .pros h4 { color: #166534; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .cons h4 { color: #9a3412; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 12px; color: #475569; margin-left: 14px; margin-bottom: 4px; line-height: 1.6; }
+
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; padding-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="doc-header">
+    <h1>Smart Apt — 수익 모델</h1>
+    <div class="sub">서비스 운영 수익화 방안 기록</div>
+    <div class="ver">v1.0.0 · 2026-08-22 · 아이디어 기록용</div>
+  </div>
+
+  <!-- 1. 기본 방향 -->
+  <div class="section">
+    <div class="section-head"><div class="num">1</div><h2>기본 방향 — 유튜브 모델 (무료 + 광고)</h2></div>
+    <div class="section-body">
+      <div class="flow-box">
+        <div><span class="fc-green">사용자</span> → <span class="fc-blue">무료로 모든 기능 사용</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fc-yellow">앱 화면에 광고 노출</span> (Google AdSense / 카카오 AdFit)</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="fc-green">광고 수익 → 운영자</span></div>
+      </div>
+      <table>
+        <thead><tr><th>플랫폼</th><th>특징</th><th>예상 단가</th></tr></thead>
+        <tbody>
+          <tr><td><b>Google AdSense</b></td><td>가장 보편적, 설치 간단, GitHub Pages 허용</td><td>페이지뷰당 $0.5~2</td></tr>
+          <tr><td>카카오 AdFit</td><td>한국 특화, 모바일 강함</td><td>유사 수준</td></tr>
+          <tr><td>네이버 애드포스트</td><td>한국 사용자 최적화</td><td>유사 수준</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. 예상 수익 -->
+  <div class="section">
+    <div class="section-head"><div class="num">2</div><h2>현실적 수익 계산</h2></div>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>월 사용자 수</th><th>예상 월 수익</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td>1,000명</td><td>2~5만원</td><td>초기 단계</td></tr>
+          <tr><td>10,000명</td><td>20~50만원</td><td>본격 운영</td></tr>
+          <tr><td>100,000명</td><td>200~500만원</td><td>안정 수익</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. 추가 수익 모델 -->
+  <div class="section">
+    <div class="section-head"><div class="num">3</div><h2>추가 수익 모델 (향후 고려)</h2></div>
+    <div class="section-body">
+      <div class="model-grid">
+        <div class="model-card">
+          <h4>Freemium <span class="tag tag-later">나중에</span></h4>
+          <p>광고 제거 유료 구독 (월 N원)<br>
+          유튜브 프리미엄과 동일 구조.<br>
+          광고 싫은 사용자 자연스럽게 유료 전환.</p>
+        </div>
+        <div class="model-card">
+          <h4>커머스 제휴 <span class="tag tag-later">나중에</span></h4>
+          <p>항목 등록 시 구매 링크 노출.<br>
+          쿠팡파트너스·네이버 제휴 등.<br>
+          구매 발생 시 수수료 수입.</p>
+        </div>
+        <div class="model-card">
+          <h4>B2B 화이트라벨 <span class="tag tag-later">나중에</span></h4>
+          <p>아파트 시행사·부동산 회사에 커스텀 버전 납품.<br>
+          "○○건설 홈인벤토리" 브랜드.<br>
+          라이선스 일괄 계약.</p>
+        </div>
+        <div class="model-card">
+          <h4>서비스 중개 <span class="tag tag-later">나중에</span></h4>
+          <p>이사업체·인테리어·보험 연결.<br>
+          사용자 데이터 기반 맞춤 추천.<br>
+          중개 수수료 수입.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 추천 로드맵 -->
+  <div class="section">
+    <div class="section-head"><div class="num">4</div><h2>단계별 수익화 로드맵</h2></div>
+    <div class="section-body">
+      <div class="flow-box">
+        <div><span class="fc-blue">1단계</span> <span class="fc-gray">무료 서비스 → 사용자 확보</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓</div>
+        <div><span class="fc-blue">2단계</span> <span class="fc-yellow">Google AdSense 광고 연결</span> <span class="fc-gray">← 지금 기록</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓</div>
+        <div><span class="fc-blue">3단계</span> <span class="fc-gray">Freemium 도입 (광고 제거 유료)</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓</div>
+        <div><span class="fc-blue">4단계</span> <span class="fc-gray">커머스 제휴 · B2B 확장</span></div>
+      </div>
+
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>✅ 광고 모델 장점</h4>
+          <ul>
+            <li>사용자 무료 → 진입장벽 없음</li>
+            <li>구현 가장 단순 (코드 한 줄)</li>
+            <li>사용자 많을수록 자동 증가</li>
+            <li>GitHub Pages에서 완전 허용</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>⚠️ 광고 모델 단점</h4>
+          <ul>
+            <li>초기엔 수익 미미</li>
+            <li>광고차단기 사용자 수익 없음</li>
+            <li>AdSense 심사 통과 필요</li>
+            <li>광고가 UX 저해 가능</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="footer">Smart Apt 수익 모델 v1.0.0 · 2026-08-22</div>
+</body>
+</html>

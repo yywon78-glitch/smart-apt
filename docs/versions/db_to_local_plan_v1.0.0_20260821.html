@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Smart Apt — DB → 로컬 전환 구축 방안</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+
+  .page { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  /* 헤더 */
+  .doc-header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #2563eb 100%);
+    border-radius: 14px; padding: 32px 36px; color: #fff; margin-bottom: 28px;
+  }
+  .doc-header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .doc-header .sub { font-size: 13px; opacity: .75; }
+  .doc-header .badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-blue  { background: rgba(255,255,255,.2); color: #fff; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-warn  { background: #fef9c3; color: #854d0e; }
+
+  /* 섹션 */
+  .section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 20px; overflow: hidden; }
+  .section-head {
+    padding: 14px 22px; background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-head .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1a3a6e; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0;
+  }
+  .section-head h2 { font-size: 15px; font-weight: 700; color: #1a3a6e; }
+  .section-body { padding: 20px 22px; }
+
+  /* 아이디어 박스 */
+  .idea-box {
+    background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 16px;
+  }
+  .idea-box .title { font-size: 13px; font-weight: 800; color: #1d4ed8; margin-bottom: 10px; }
+  .flow {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .flow-box {
+    background: #fff; border: 1.5px solid #93c5fd; border-radius: 6px;
+    padding: 7px 14px; color: #1e40af; font-weight: 600;
+  }
+  .flow-arr { color: #3b82f6; font-size: 18px; font-weight: 700; }
+  .flow-box.green { border-color: #86efac; color: #166534; background: #f0fdf4; }
+  .flow-box.gray  { border-color: #cbd5e1; color: #64748b; background: #f8fafc; }
+
+  /* 저장소 구조 */
+  .storage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:600px) { .storage-grid { grid-template-columns: 1fr; } }
+  .storage-card {
+    border: 1.5px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+  }
+  .storage-card .sc-head {
+    padding: 9px 14px; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sc-local .sc-head { background: #eff6ff; color: #1d4ed8; border-bottom: 1px solid #dbeafe; }
+  .sc-idb   .sc-head { background: #f0fdf4; color: #166534; border-bottom: 1px solid #bbf7d0; }
+  .sc-body { padding: 10px 14px; }
+  .sc-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px dashed #f0f0f0; font-size: 12px; }
+  .sc-row:last-child { border-bottom: none; }
+  .sc-key { font-family: Consolas, monospace; color: #7c3aed; font-size: 11px; width: 180px; flex-shrink: 0; }
+  .sc-val { color: #475569; }
+
+  /* 파일 구성 */
+  .file-tree { font-family: Consolas, monospace; font-size: 12px; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 18px 20px; line-height: 2; }
+  .ft-dir  { color: #60a5fa; font-weight: 700; }
+  .ft-new  { color: #4ade80; }
+  .ft-mod  { color: #fbbf24; }
+  .ft-same { color: #94a3b8; }
+  .ft-tag  { font-size: 10px; background: #1e3a5f; color: #60a5fa; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
+  .ft-tag.green { background: #14532d; color: #4ade80; }
+  .ft-tag.yellow { background: #451a03; color: #fbbf24; }
+
+  /* API 테이블 */
+  .api-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .api-table th { background: #1a3a6e; color: #fff; padding: 9px 12px; text-align: left; font-weight: 600; }
+  .api-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .api-table tr:hover td { background: #f8faff; }
+  .method { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 800; margin-right: 4px; }
+  .get  { background: #dbeafe; color: #1d4ed8; }
+  .post { background: #dcfce7; color: #166534; }
+  .put  { background: #fef9c3; color: #854d0e; }
+  .del  { background: #fee2e2; color: #991b1b; }
+  .api-path { font-family: Consolas, monospace; color: #374151; }
+  .api-impl { color: #64748b; }
+
+  /* 단계 카드 */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px;
+  }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800;
+  }
+  .step:nth-child(1) .step-num { background: #dbeafe; color: #1d4ed8; }
+  .step:nth-child(2) .step-num { background: #dcfce7; color: #166534; }
+  .step:nth-child(3) .step-num { background: #fef9c3; color: #854d0e; }
+  .step:nth-child(4) .step-num { background: #ede9fe; color: #6d28d9; }
+  .step:nth-child(5) .step-num { background: #fee2e2; color: #991b1b; }
+  .step-info h4 { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+  .step-info p  { font-size: 12px; color: #64748b; line-height: 1.6; }
+  .step-file { font-family: Consolas, monospace; font-size: 11px; color: #7c3aed; background: #ede9fe; padding: 1px 6px; border-radius: 3px; }
+
+  /* 장단점 */
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:600px) { .pros-cons { grid-template-columns: 1fr; } }
+  .pros, .cons {
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .pros { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+  .cons { background: #fff7ed; border: 1.5px solid #fed7aa; }
+  .pros h4 { color: #166534; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .cons h4 { color: #9a3412; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 12px; color: #475569; margin-left: 14px; margin-bottom: 4px; line-height: 1.5; }
+
+  /* 하단 */
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="doc-header">
+    <h1>Smart Apt — DB 없이 서비스하기</h1>
+    <div class="sub">MSSQL Express 서버 → GitHub Pages 정적 서비스 전환 구축 방안</div>
+    <div class="badges">
+      <span class="badge badge-blue">GitHub Pages 호환</span>
+      <span class="badge badge-green">서버 불필요</span>
+      <span class="badge badge-warn">HTML 5개 무수정</span>
+    </div>
+  </div>
+
+  <!-- 1. 핵심 아이디어 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">1</div>
+      <h2>핵심 아이디어 — Fetch 인터셉터 패턴</h2>
+    </div>
+    <div class="section-body">
+      <div class="idea-box">
+        <div class="title">기존 HTML 파일 5개를 전혀 수정하지 않는다</div>
+        <div class="flow">
+          <div class="flow-box">fetch('/api/bom-tree')</div>
+          <div class="flow-arr">→</div>
+          <div class="flow-box gray">인터셉터가 가로챔</div>
+          <div class="flow-arr">→</div>
+          <div class="flow-box green">localStorage 응답</div>
+        </div>
+      </div>
+      <p style="font-size:13px;color:#475569;line-height:1.8">
+        <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">index.html</code>에
+        <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">api-local.js</code> 한 줄만 추가하면,
+        기존 HTML들이 <code>/api/*</code>를 호출할 때 인터셉터가 가로채
+        DB 대신 브라우저 저장소에서 읽고 씁니다.
+        서버도 필요 없고, 기존 화면 코드도 건드리지 않아도 됩니다.
+      </p>
+    </div>
+  </div>
+
+  <!-- 2. 저장소 구조 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">2</div>
+      <h2>브라우저 저장소 구조</h2>
+    </div>
+    <div class="section-body">
+      <div class="storage-grid">
+        <div class="storage-card sc-local">
+          <div class="sc-head">🗂 localStorage <span style="font-weight:400;opacity:.7">(텍스트 데이터)</span></div>
+          <div class="sc-body">
+            <div class="sc-row"><div class="sc-key">smart_apt_items</div><div class="sc-val">집·구역·항목 (H/Z/I 노드)</div></div>
+            <div class="sc-row"><div class="sc-key">smart_apt_bom</div><div class="sc-val">부모-자식 BOM 관계</div></div>
+            <div class="sc-row"><div class="sc-key">smart_apt_cats</div><div class="sc-val">카테고리 목록</div></div>
+            <div class="sc-row"><div class="sc-key">smart_apt_fps</div><div class="sc-val">도면 메타정보 (이름·동·호)</div></div>
+            <div class="sc-row"><div class="sc-key">smart_apt_fp_zones</div><div class="sc-val">도면 위 영역 좌표·색상</div></div>
+            <div class="sc-row"><div class="sc-key">smart_apt_next_id</div><div class="sc-val">자동 증가 ID 카운터</div></div>
+          </div>
+        </div>
+        <div class="storage-card sc-idb">
+          <div class="sc-head">🗄 IndexedDB <span style="font-weight:400;opacity:.7">(이미지 데이터)</span></div>
+          <div class="sc-body">
+            <div class="sc-row"><div class="sc-key">smart_apt_images</div><div class="sc-val">도면 이미지 base64<br><span style="color:#9ca3af;font-size:11px">localStorage는 5MB 한계 → IndexedDB 사용</span></div></div>
+          </div>
+          <div class="sc-body" style="padding-top:0">
+            <div style="font-size:11px;color:#16a34a;background:#dcfce7;border-radius:6px;padding:8px 10px;line-height:1.6">
+              ✅ IndexedDB는 수백 MB 저장 가능<br>
+              ✅ 도면 이미지 여러 장도 문제없음
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 파일 구성 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">3</div>
+      <h2>파일 구성 (변경 범위)</h2>
+    </div>
+    <div class="section-body">
+      <div class="file-tree">
+        <div><span class="ft-dir">smart_apt/</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">public/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-mod">index.html</span><span class="ft-tag yellow">수정 1줄</span> <span style="color:#64748b;font-size:11px">← &lt;script src="/js/api-local.js"&gt; 추가</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">js/</span><span class="ft-tag green">신규 폴더</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">api-local.js</span><span class="ft-tag green">신규</span> <span style="color:#64748b;font-size:11px">← fetch 인터셉터 + 전체 API 구현</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">storage.js</span><span class="ft-tag green">신규</span> <span style="color:#64748b;font-size:11px">← localStorage / IndexedDB 읽기/쓰기</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">seed.js</span><span class="ft-tag green">신규</span> <span style="color:#64748b;font-size:11px">← 최초 실행 시 초기 데이터 생성</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">pages/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">대시보드.html</span><span class="ft-tag">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리.html</span><span class="ft-tag">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리등록.html</span><span class="ft-tag">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리구성도.html</span><span class="ft-tag">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">평면도.html</span><span class="ft-tag">무수정</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-same">server.js</span><span class="ft-tag">참조용 보존</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-new">.nojekyll</span><span class="ft-tag green">신규</span> <span style="color:#64748b;font-size:11px">← GitHub Pages 한글 파일명 인식용</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. API 대체 목록 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">4</div>
+      <h2>API 대체 목록</h2>
+    </div>
+    <div class="section-body">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th style="width:240px">현재 서버 API</th>
+            <th>로컬 대체 방식</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/bom-tree</span></td>
+            <td class="api-impl">localStorage items + bom 조합해서 트리 구성</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/zones</span></td>
+            <td class="api-impl">localStorage items에서 node_type='Z' 필터</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/categories</span></td>
+            <td class="api-impl">localStorage cats (seed.js로 초기값 제공)</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/cost</span></td>
+            <td class="api-impl">로컬 트리 순회해서 구역별 금액 집계</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="api-path">/api/zones</span></td>
+            <td class="api-impl">next_id++ 로 ID 발급, items + bom에 추가</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><span class="api-path">/api/zones/:id</span></td>
+            <td class="api-impl">localStorage items에서 id 찾아 수정</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><span class="api-path">/api/bom/:id</span></td>
+            <td class="api-impl">bom + items 재귀 삭제 (고아 제거)</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="api-path">/api/items</span></td>
+            <td class="api-impl">next_id++ 발급, items + bom 추가</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><span class="api-path">/api/items/:id</span></td>
+            <td class="api-impl">localStorage items에서 수정</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/floorplans</span></td>
+            <td class="api-impl">localStorage fps 읽기</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="api-path">/api/floorplans</span></td>
+            <td class="api-impl">메타→localStorage, 이미지→IndexedDB</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><span class="api-path">/api/floorplans/:id</span></td>
+            <td class="api-impl">fps + fp_zones + IndexedDB 이미지 삭제</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><span class="api-path">/api/floorplans/:id/zones</span></td>
+            <td class="api-impl">localStorage fp_zones에서 fp_id 필터</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><span class="api-path">/api/floorplans/:id/zones</span></td>
+            <td class="api-impl">fp_zones에 추가</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><span class="api-path">/api/fp-zones/:id</span></td>
+            <td class="api-impl">fp_zones에서 id 찾아 수정</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><span class="api-path">/api/fp-zones/:id</span></td>
+            <td class="api-impl">fp_zones에서 삭제</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5. 구현 순서 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">5</div>
+      <h2>구현 순서</h2>
+    </div>
+    <div class="section-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-info">
+            <h4>storage.js 작성</h4>
+            <p>localStorage / IndexedDB 읽기·쓰기 래퍼. ID 자동 채번, 데이터 직렬화 담당.<br>
+            파일: <span class="step-file">public/js/storage.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-info">
+            <h4>seed.js 작성</h4>
+            <p>최초 실행 시 "우리집(H노드)" + 기본 카테고리를 localStorage에 생성.<br>
+            파일: <span class="step-file">public/js/seed.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-info">
+            <h4>api-local.js 작성</h4>
+            <p>window.fetch를 오버라이드해서 /api/* 요청을 가로채 storage.js로 처리. 위 API 16개를 전부 구현.<br>
+            파일: <span class="step-file">public/js/api-local.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-info">
+            <h4>index.html 수정 (1줄)</h4>
+            <p><code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:11px">&lt;script src="/js/api-local.js"&gt;&lt;/script&gt;</code> 한 줄을 &lt;head&gt; 안에 추가.<br>
+            파일: <span class="step-file">public/index.html</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-info">
+            <h4>내보내기 / 가져오기 기능</h4>
+            <p>대시보드에 백업(JSON 다운로드)·복원(JSON 업로드) 버튼 추가. 기기 간 이전 가능.<br>
+            파일: <span class="step-file">public/pages/대시보드.html</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 장단점 -->
+  <div class="section">
+    <div class="section-head">
+      <div class="num">6</div>
+      <h2>장단점</h2>
+    </div>
+    <div class="section-body">
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>✅ 장점</h4>
+          <ul>
+            <li>서버 없이 GitHub Pages에서 즉시 서비스</li>
+            <li>기존 HTML 5개 코드 수정 불필요</li>
+            <li>인터넷 없어도 동작 (오프라인 가능)</li>
+            <li>설치·설정 없이 브라우저만으로 사용</li>
+            <li>IndexedDB로 이미지도 넉넉히 저장</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>⚠️ 제약</h4>
+          <ul>
+            <li>데이터가 브라우저에 저장 → 기기마다 별도</li>
+            <li>브라우저 캐시 지우면 데이터 사라짐<br>
+                <span style="color:#9a3412">→ 내보내기로 백업 필수</span></li>
+            <li>여러 사람 공유 불가 (단일 사용자 앱)</li>
+            <li>실시간 동기화 없음</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="footer">Smart Apt 구축 방안 · 2026-08-22</div>
+</body>
+</html>

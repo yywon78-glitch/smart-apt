@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="prog-version" content="3.0.0" data-date="2026-08-22">
+<title>Smart Apt — 서비스 구축 방안 v3.0</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+  .page { max-width: 980px; margin: 0 auto; padding: 32px 24px; }
+
+  .doc-header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #0f766e 100%);
+    border-radius: 14px; padding: 32px 36px; color: #fff; margin-bottom: 28px;
+  }
+  .doc-header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .doc-header .sub { font-size: 13px; opacity: .75; }
+  .doc-header .ver { font-size: 11px; opacity: .5; margin-top: 4px; }
+  .badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-white  { background: rgba(255,255,255,.2); color: #fff; }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+
+  .section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 20px; overflow: hidden; }
+  .section-head {
+    padding: 14px 22px; background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-head .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1a3a6e; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0;
+  }
+  .section-head h2 { font-size: 15px; font-weight: 700; color: #1a3a6e; }
+  .section-body { padding: 22px; }
+
+  /* 비교 박스 */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media(max-width:620px) { .compare-grid { grid-template-columns: 1fr; } }
+  .cmp-box { border-radius: 10px; padding: 18px; border: 2px solid; }
+  .cmp-old { background: #fef2f2; border-color: #fca5a5; }
+  .cmp-new { background: #f0fdf4; border-color: #86efac; }
+  .cmp-box .cmp-title { font-size: 12px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .cmp-old .cmp-title { color: #991b1b; }
+  .cmp-new .cmp-title { color: #166534; }
+  .cmp-box .tag { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 700; }
+  .tag-old { background: #fee2e2; color: #991b1b; }
+  .tag-new { background: #dcfce7; color: #166534; }
+
+  /* 흐름도 */
+  .flow-wrap { background: #0f172a; border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+  .flow-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .flow-row:last-child { margin-bottom: 0; }
+  .fb { padding: 9px 16px; border-radius: 7px; font-size: 12px; font-weight: 600; line-height: 1.5; }
+  .fb-blue   { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+  .fb-green  { background: #14532d; color: #86efac; border: 1px solid #22c55e; }
+  .fb-gray   { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+  .fb-teal   { background: #134e4a; color: #5eead4; border: 1px solid #14b8a6; }
+  .fb-yellow { background: #451a03; color: #fcd34d; border: 1px solid #f59e0b; }
+  .fa { color: #60a5fa; font-size: 18px; font-weight: 700; }
+  .fa-down { color: #4ade80; font-size: 16px; display: block; padding: 4px 0 4px 8px; }
+  .flow-comment { font-size: 11px; color: #475569; padding: 2px 0 6px 4px; }
+
+  /* 아키텍처 카드 */
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:620px) { .arch-grid { grid-template-columns: 1fr; } }
+  .arch-card { border-radius: 8px; padding: 16px 18px; border: 1.5px solid; }
+  .arch-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .arch-card ul { list-style: none; }
+  .arch-card li { font-size: 12px; color: #475569; padding: 4px 0; border-bottom: 1px dashed #f0f0f0; display: flex; gap: 8px; }
+  .arch-card li:last-child { border-bottom: none; }
+  .arch-card li::before { content: '→'; flex-shrink: 0; }
+  .ac-blue   { background: #eff6ff; border-color: #bfdbfe; }
+  .ac-blue   h4 { color: #1d4ed8; }
+  .ac-teal   { background: #f0fdfa; border-color: #99f6e4; }
+  .ac-teal   h4 { color: #0f766e; }
+  .ac-green  { background: #f0fdf4; border-color: #bbf7d0; }
+  .ac-green  h4 { color: #166534; }
+  .ac-yellow { background: #fffbeb; border-color: #fde68a; }
+  .ac-yellow h4 { color: #92400e; }
+
+  /* 비용 테이블 */
+  .cost-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cost-table th { background: #1a3a6e; color: #fff; padding: 9px 14px; text-align: left; }
+  .cost-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; }
+  .cost-table tr:hover td { background: #f8faff; }
+  .ok  { color: #16a34a; font-weight: 700; }
+  .no  { color: #dc2626; font-weight: 700; }
+  .mid { color: #d97706; font-weight: 700; }
+
+  /* 파일 트리 */
+  .file-tree { font-family: Consolas, monospace; font-size: 12px; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 20px; line-height: 2.1; }
+  .ft-dir  { color: #60a5fa; font-weight: 700; }
+  .ft-new  { color: #4ade80; }
+  .ft-mod  { color: #fbbf24; }
+  .ft-same { color: #64748b; }
+  .ft-tag  { font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
+  .ft-tag.new  { background: #14532d; color: #4ade80; }
+  .ft-tag.mod  { background: #451a03; color: #fbbf24; }
+  .ft-tag.same { background: #1e293b; color: #64748b; }
+  .ft-comment  { color: #475569; font-size: 11px; }
+
+  /* API 테이블 */
+  .api-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .api-table th { background: #0f766e; color: #fff; padding: 9px 12px; text-align: left; }
+  .api-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .api-table tr:hover td { background: #f0fdfa; }
+  .method { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 800; margin-right: 4px; }
+  .get  { background: #dbeafe; color: #1d4ed8; }
+  .post { background: #dcfce7; color: #166534; }
+  .put  { background: #fef9c3; color: #854d0e; }
+  .del  { background: #fee2e2; color: #991b1b; }
+  .gd-col { color: #0f766e; font-family: Consolas; font-size: 11px; }
+
+  /* 단계 */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step { display: flex; gap: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; }
+  .step-num { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+  .step:nth-child(1) .step-num { background: #dbeafe; color: #1d4ed8; }
+  .step:nth-child(2) .step-num { background: #ccfbf1; color: #0f766e; }
+  .step:nth-child(3) .step-num { background: #dcfce7; color: #166534; }
+  .step:nth-child(4) .step-num { background: #fef9c3; color: #854d0e; }
+  .step:nth-child(5) .step-num { background: #ede9fe; color: #6d28d9; }
+  .step:nth-child(6) .step-num { background: #fee2e2; color: #991b1b; }
+  .step-info h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .step-info p  { font-size: 12px; color: #64748b; line-height: 1.7; }
+  .step-file { font-family: Consolas; font-size: 11px; color: #0f766e; background: #ccfbf1; padding: 1px 6px; border-radius: 3px; }
+
+  /* 장단점 */
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:600px) { .pros-cons { grid-template-columns: 1fr; } }
+  .pros { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; }
+  .cons { background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 14px 16px; }
+  .pros h4 { color: #166534; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .cons h4 { color: #9a3412; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 12px; color: #475569; margin-left: 16px; margin-bottom: 5px; line-height: 1.5; }
+
+  .notice { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-size: 12px; color: #78350f; line-height: 1.8; }
+  .notice strong { color: #92400e; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-family: Consolas; font-size: 11px; }
+  .footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 24px; padding-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="doc-header">
+    <h1>Smart Apt — 서비스 구축 방안</h1>
+    <div class="sub">MSSQL 제거 → GitHub Pages + Google Drive API 전환 설계서</div>
+    <div class="ver">v3.0.0 · 2026-08-22 · v2 Firebase → v3 Google Drive API 로 전면 변경</div>
+    <div class="badges">
+      <span class="badge badge-white">GitHub Pages 호스팅</span>
+      <span class="badge badge-green">개인 Google Drive 저장</span>
+      <span class="badge badge-yellow">운영자 비용 없음</span>
+      <span class="badge badge-blue">HTML 5개 무수정</span>
+    </div>
+  </div>
+
+  <!-- 핵심 변경 -->
+  <div class="section">
+    <div class="section-head"><div class="num">!</div><h2>v2 → v3 핵심 변경</h2></div>
+    <div class="section-body">
+      <div class="compare-grid">
+        <div class="cmp-box cmp-old">
+          <div class="cmp-title">❌ v2 — Firebase (폐기) <span class="tag tag-old">운영자 부담</span></div>
+          <ul style="list-style:none;font-size:12px;color:#991b1b;line-height:2">
+            <li>→ 데이터가 운영자 Firebase에 저장</li>
+            <li>→ 운영자가 저장·트래픽 비용 부담</li>
+            <li>→ 헤비유저 = 운영자 과금</li>
+            <li>→ Firebase 의존성</li>
+          </ul>
+        </div>
+        <div class="cmp-box cmp-new">
+          <div class="cmp-title">✅ v3 — Google Drive API <span class="tag tag-new">개인 부담</span></div>
+          <ul style="list-style:none;font-size:12px;color:#166534;line-height:2">
+            <li>→ 데이터가 개인 Google Drive에 저장</li>
+            <li>→ 운영자 비용 완전 없음</li>
+            <li>→ 헤비유저 = 본인 Drive 용량 사용</li>
+            <li>→ 데이터 소유권이 완전히 개인에게</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. 최종 구조 -->
+  <div class="section">
+    <div class="section-head"><div class="num">1</div><h2>최종 서비스 구조</h2></div>
+    <div class="section-body">
+      <div class="flow-wrap">
+        <div class="flow-comment">── 앱은 GitHub Pages에서 서비스 ──</div>
+        <div class="flow-row">
+          <div class="fb fb-blue">GitHub Pages<br><span style="font-size:10px;opacity:.7">smart-apt.github.io</span></div>
+          <div class="fa">→</div>
+          <div class="fb fb-gray">홍길동 브라우저</div>
+          <div class="fa">→</div>
+          <div class="fb fb-yellow">Google 로그인</div>
+        </div>
+        <span class="fa-down">↓</span>
+        <div class="flow-comment">── 데이터는 각자 본인 Google Drive에 저장 ──</div>
+        <div class="flow-row">
+          <div class="fb fb-teal">홍길동 Google Drive<br><span style="font-size:10px;opacity:.7">내 드라이브/SmartApt/db.json<br>내 드라이브/SmartApt/images/</span></div>
+          <div class="fa">완전 분리</div>
+          <div class="fb fb-teal">김영희 Google Drive<br><span style="font-size:10px;opacity:.7">내 드라이브/SmartApt/db.json<br>내 드라이브/SmartApt/images/</span></div>
+        </div>
+        <span class="fa-down">↓</span>
+        <div class="flow-comment">── 결과 ──</div>
+        <div class="flow-row">
+          <div class="fb fb-green">운영자 비용 없음</div>
+          <div class="fb fb-green">개인 15GB 드라이브 사용</div>
+          <div class="fb fb-green">PC·폰·다른PC 동기화</div>
+        </div>
+      </div>
+
+      <div class="arch-grid" style="margin-top:16px">
+        <div class="arch-card ac-blue">
+          <h4>🌐 GitHub Pages (앱)</h4>
+          <ul>
+            <li>HTML/CSS/JS 정적 파일 서비스</li>
+            <li>운영자가 GitHub 저장소만 관리</li>
+            <li>앱 업데이트 시 모든 사용자 자동 반영</li>
+            <li>무료 · HTTPS 기본 제공</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-yellow">
+          <h4>🔐 Google OAuth 2.0 (로그인)</h4>
+          <ul>
+            <li>구글 계정으로 1클릭 로그인</li>
+            <li>Google Cloud에 앱 등록 (무료)</li>
+            <li>Drive 접근 권한 요청</li>
+            <li>운영자 비용 없음</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-teal">
+          <h4>📁 Google Drive API (데이터)</h4>
+          <ul>
+            <li>db.json → 구역·항목·BOM 모든 데이터</li>
+            <li>images/ → 평면도 이미지</li>
+            <li>개인 Drive 15GB에서 사용</li>
+            <li>Google이 자동 동기화 처리</li>
+          </ul>
+        </div>
+        <div class="arch-card ac-green">
+          <h4>💰 비용 구조</h4>
+          <ul>
+            <li>운영자: Google Cloud API 등록 (무료)</li>
+            <li>개인: 본인 Google Drive 용량 사용</li>
+            <li>헤비유저: 본인 Drive 용량만 증가</li>
+            <li>운영자 추가 비용 발생 없음</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 비용 완전 분석 -->
+  <div class="section">
+    <div class="section-head"><div class="num">2</div><h2>비용 완전 분석</h2></div>
+    <div class="section-body">
+      <table class="cost-table">
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>운영자</th>
+            <th>개인 사용자</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>앱 호스팅</td>
+            <td class="ok">무료 (GitHub Pages)</td>
+            <td>없음</td>
+          </tr>
+          <tr>
+            <td>Google Cloud 앱 등록</td>
+            <td class="ok">무료</td>
+            <td>없음</td>
+          </tr>
+          <tr>
+            <td>데이터 저장</td>
+            <td class="ok">없음 (개인 Drive)</td>
+            <td>본인 Drive 15GB 사용</td>
+          </tr>
+          <tr>
+            <td>이미지 저장</td>
+            <td class="ok">없음 (개인 Drive)</td>
+            <td>본인 Drive 용량 사용</td>
+          </tr>
+          <tr>
+            <td>Drive API 호출</td>
+            <td class="ok">무료 (하루 10억 건)</td>
+            <td>없음</td>
+          </tr>
+          <tr>
+            <td>헤비유저 발생 시</td>
+            <td class="ok">영향 없음</td>
+            <td>본인 Drive 용량 ↑</td>
+          </tr>
+          <tr style="background:#f0fdf4;font-weight:700">
+            <td>합계</td>
+            <td class="ok">완전 무료</td>
+            <td>구글 계정만 있으면 됨</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="notice" style="margin-top:16px">
+        <strong>Drive API 할당량</strong>: 하루 10억 건 요청 (사실상 무제한). 운영자 기준이며,
+        개인 사용자 수백 명이 써도 한도에 도달할 수 없는 수준입니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 파일 구성 -->
+  <div class="section">
+    <div class="section-head"><div class="num">3</div><h2>파일 구성</h2></div>
+    <div class="section-body">
+      <div class="file-tree">
+        <div><span class="ft-dir">smart_apt/</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">public/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-mod">index.html</span><span class="ft-tag mod">수정 소량</span> <span class="ft-comment">← Google OAuth 로그인 화면 추가</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">js/</span><span class="ft-tag new">신규</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">google-auth.js</span><span class="ft-tag new">신규</span> <span class="ft-comment">← Google OAuth 2.0 로그인/로그아웃</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">drive.js</span><span class="ft-tag new">신규</span> <span class="ft-comment">← Google Drive API 읽기/쓰기 래퍼</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">api-local.js</span><span class="ft-tag new">신규</span> <span class="ft-comment">← fetch 인터셉터 (/api/* → Drive 호출)</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-new">seed.js</span><span class="ft-tag new">신규</span> <span class="ft-comment">← 최초 실행 시 db.json 초기 생성</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-dir">pages/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">대시보드.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리등록.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">홈인벤토리구성도.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-same">평면도.html</span><span class="ft-tag same">무수정</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-new">.nojekyll</span><span class="ft-tag new">신규</span> <span class="ft-comment">← 한글 파일명 GitHub Pages 인식</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. API 대체 -->
+  <div class="section">
+    <div class="section-head"><div class="num">4</div><h2>API 대체 목록 (server.js → Google Drive)</h2></div>
+    <div class="section-body">
+      <div class="notice">
+        모든 데이터는 개인 Drive의 <strong>SmartApt/db.json</strong> 한 파일에 저장됩니다.
+        읽기: Drive에서 db.json 다운로드 → 메모리에서 처리.
+        쓰기: 메모리에서 수정 → Drive에 db.json 업로드.
+      </div>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th style="width:210px">현재 서버 API</th>
+            <th style="width:200px">Drive 저장 위치</th>
+            <th>대체 방식</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/bom-tree</code></td>
+            <td class="gd-col">SmartApt/db.json<br>→ items, bom 키</td>
+            <td>db.json 다운로드 → 트리 조합 반환</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/zones</code></td>
+            <td class="gd-col">SmartApt/db.json<br>→ items 키</td>
+            <td>node_type='Z' 필터</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/categories</code></td>
+            <td class="gd-col">SmartApt/db.json<br>→ categories 키</td>
+            <td>categories 배열 반환</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/zones</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>db 읽기 → items/bom 추가 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/zones/:id</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>db 읽기 → id 찾아 수정 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/bom/:id</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>db 읽기 → 재귀 삭제 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/items</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>db 읽기 → items/bom 추가 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/items/:id</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>db 읽기 → 수정 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/floorplans</code></td>
+            <td class="gd-col">SmartApt/db.json<br>→ floorplans 키</td>
+            <td>floorplans 배열 반환</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/floorplans</code></td>
+            <td class="gd-col">SmartApt/db.json<br>SmartApt/images/</td>
+            <td>이미지→Drive images/ 업로드<br>메타→db.json floorplans에 추가</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/floorplans/:id</code></td>
+            <td class="gd-col">SmartApt/db.json<br>SmartApt/images/</td>
+            <td>db에서 제거 + Drive 이미지 파일 삭제</td>
+          </tr>
+          <tr>
+            <td><span class="method get">GET</span><code>/api/floorplans/:id/zones</code></td>
+            <td class="gd-col">SmartApt/db.json<br>→ fpZones 키</td>
+            <td>fp_id 필터해서 반환</td>
+          </tr>
+          <tr>
+            <td><span class="method post">POST</span><code>/api/fp-zones</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>fpZones 배열에 추가 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method put">PUT</span><code>/api/fp-zones/:id</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>id 찾아 수정 → db 저장</td>
+          </tr>
+          <tr>
+            <td><span class="method del">DELETE</span><code>/api/fp-zones/:id</code></td>
+            <td class="gd-col">SmartApt/db.json</td>
+            <td>id 찾아 삭제 → db 저장</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5. db.json 구조 -->
+  <div class="section">
+    <div class="section-head"><div class="num">5</div><h2>db.json 구조 (개인 Drive에 저장되는 파일)</h2></div>
+    <div class="section-body">
+      <div class="file-tree">
+        <div><span style="color:#fbbf24">{</span></div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"nextId"</span>: <span style="color:#60a5fa">1050</span>,  <span class="ft-comment">← 자동 증가 ID</span></div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"items"</span>: [  <span class="ft-comment">← 집(H) · 구역(Z) · 항목(I) 모든 노드</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ "item_id": 1, "node_type": "H", "item_name": "우리집", ... },</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ "item_id": 2, "node_type": "Z", "item_name": "거실", ... },</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ "item_id": 3, "node_type": "I", "item_name": "소파", ... }</div>
+        <div>&nbsp;&nbsp;],</div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"bom"</span>: [  <span class="ft-comment">← 부모-자식 관계</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;{ "bom_id": 1, "parent_item_id": 1, "child_item_id": 2, ... }</div>
+        <div>&nbsp;&nbsp;],</div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"categories"</span>: [ ... ],  <span class="ft-comment">← 카테고리</span></div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"floorplans"</span>: [ ... ],  <span class="ft-comment">← 도면 목록 (이미지 경로 포함)</span></div>
+        <div>&nbsp;&nbsp;<span style="color:#4ade80">"fpZones"</span>: [ ... ]  <span class="ft-comment">← 도면 위 영역 좌표</span></div>
+        <div><span style="color:#fbbf24">}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 구현 순서 -->
+  <div class="section">
+    <div class="section-head"><div class="num">6</div><h2>구현 순서</h2></div>
+    <div class="section-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-info">
+            <h4>Google Cloud 앱 등록 (운영자 1회)</h4>
+            <p>console.cloud.google.com → 새 프로젝트 → Google Drive API 활성화 → OAuth 2.0 클라이언트 ID 발급<br>
+            발급된 Client ID를 코드에 설정</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-info">
+            <h4>google-auth.js 작성</h4>
+            <p>Google Identity Services 로그인/로그아웃, 액세스 토큰 관리<br>
+            파일: <span class="step-file">public/js/google-auth.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-info">
+            <h4>drive.js 작성</h4>
+            <p>Drive API로 SmartApt/ 폴더 생성, db.json 읽기/쓰기, 이미지 업로드/삭제<br>
+            파일: <span class="step-file">public/js/drive.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-info">
+            <h4>api-local.js 작성 (fetch 인터셉터)</h4>
+            <p>window.fetch 오버라이드 → /api/* 요청을 drive.js 호출로 대체. 기존 HTML 무수정<br>
+            파일: <span class="step-file">public/js/api-local.js</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-info">
+            <h4>index.html 수정 (로그인 UI)</h4>
+            <p>비로그인 시 구글 로그인 화면 표시, 로그인 후 앱 진입. SDK 로드 추가<br>
+            파일: <span class="step-file">public/index.html</span></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-info">
+            <h4>GitHub Pages 배포</h4>
+            <p>git push → 자동 배포. <code>.nojekyll</code> 추가로 한글 파일명 인식<br>
+            Google Cloud 콘솔에 GitHub Pages 도메인 허용 등록 필요</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 장단점 -->
+  <div class="section">
+    <div class="section-head"><div class="num">7</div><h2>장단점</h2></div>
+    <div class="section-body">
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>✅ 장점</h4>
+          <ul>
+            <li>운영자 비용 완전 없음</li>
+            <li>데이터 소유권이 완전히 개인에게</li>
+            <li>구글 계정으로 PC·폰·다른PC 동기화</li>
+            <li>헤비유저가 생겨도 운영자 무관</li>
+            <li>개인 Drive에서 db.json 직접 확인·백업 가능</li>
+            <li>Drive API 무료 한도 사실상 무제한</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>⚠️ 제약</h4>
+          <ul>
+            <li>구글 계정 필수</li>
+            <li>인터넷 연결 필요</li>
+            <li>Drive API 구현이 Firebase보다 코드량 많음</li>
+            <li>최초 로그인 시 Drive 권한 동의 필요</li>
+            <li>Google Cloud 앱 검수 필요<br>
+                <span style="color:#9a3412;font-size:11px">(미검수 시 "확인되지 않은 앱" 경고 — 개인 사용 무관)</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="footer">Smart Apt 구축 방안 v3.0.0 · 2026-08-22</div>
+</body>
+</html>
