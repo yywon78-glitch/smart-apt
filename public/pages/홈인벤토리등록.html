@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.3.0" data-date="2026-08-23">
+<meta name="prog-version" content="6.1.0" data-date="2026-08-21">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -102,7 +102,6 @@
   .r-drill:hover { background: #eff6ff !important; cursor: pointer; }
   .r-drill:hover td { color: #1d4ed8; }
 
-
   /* 인라인 등록 행 */
   .pr-row { background: #fffbeb !important; }
   .pr-row td { padding: 4px 6px; border-bottom: 1px solid #fde68a; }
@@ -195,26 +194,25 @@
 (async function () {
 
   /* ══ 상태 ══════════════════════════════════════════════════ */
-  let navHistory   = [];
-  let leftParentId = null;   // null=집목록, H.id=구역목록, Z.id=항목목록
-  let leftSelId    = null;
+  let navHistory   = [];    // [{leftParentId, leftSelId, selName}]
+  let leftParentId = null;  // 좌측 패널 부모 item_id
+  let leftSelId    = null;  // 좌측 선택 item_id
   let _mo          = {};
   let newRowState  = null;
   let editState    = null;
 
-  let allBom  = [];
-  let nodeMap = {};
+  let allBom  = [];   // /api/bom-tree 전체 (house 포함)
+  let nodeMap = {};   // item_id → node
   let cats    = [];
 
   /* ══ 헬퍼 ══════════════════════════════════════════════════ */
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const getHouses      = ()      => allBom.filter(r => r.node_type === 'H').sort((a,b) => a.sort_order - b.sort_order);
+  const getHouse       = ()      => allBom.find(r => r.node_type === 'H');
   const getNode        = id      => nodeMap[id];
   const getChildrenOf  = id      => allBom.filter(r => r.parent_item_id === id).sort((a,b) => a.sort_order - b.sort_order);
   const getLeftItems   = ()      => getChildrenOf(leftParentId);
   const getRightItems  = ()      => leftSelId ? getChildrenOf(leftSelId) : [];
-  const isAtRoot       = ()      => leftParentId === null;
-  const levelOf        = id     => !id ? 'root' : getNode(id)?.node_type === 'H' ? 'house' : 'zone';
+  const isAtRoot       = ()      => leftParentId === getHouse()?.item_id;
 
   /* ══ 데이터 로드 ═══════════════════════════════════════════ */
   async function loadAll() {
@@ -224,6 +222,7 @@
     ]);
     nodeMap = {};
     allBom.forEach(r => { nodeMap[r.item_id] = r; });
+    if (!leftParentId) leftParentId = getHouse()?.item_id;
     render();
   }
 
@@ -240,13 +239,13 @@
     document.getElementById('btnAddR').disabled    = !leftSelId;
 
     /* 좌측 상위 표시 */
-    if (!leftParentId) {
-      document.getElementById('leftParent').textContent = '🏘️ 집 목록';
+    const h = getHouse();
+    if (isAtRoot()) {
+      document.getElementById('leftParent').innerHTML =
+        `🏠 ${h?.item_name||'우리집'} <span style="font-size:10px;font-weight:400;color:#94a3b8">${h?.item_code||''}</span>`;
     } else {
       const pn = getNode(leftParentId);
-      const icon = pn?.node_type==='H'?'🏠':pn?.node_type==='Z'?'📁':'📦';
-      document.getElementById('leftParent').innerHTML =
-        `${icon} ${esc(pn?.item_name||'')} <span style="font-size:10px;font-weight:400;color:#94a3b8">${esc(pn?.item_code||'')}</span>`;
+      document.getElementById('leftParent').textContent = `${pn?.node_type==='Z'?'📁':'📦'} ${pn?.item_name||''}`;
     }
 
     /* 우측 상위 표시 */
@@ -256,7 +255,9 @@
   }
 
   function renderBreadcrumb() {
-    const segs = ['🏘️ 집 목록', ...navHistory.map(x => x.selName)];
+    const h = getHouse();
+    const root = `🏠 ${h?.item_name||'우리집'} (${h?.item_code||'H000001'})`;
+    const segs = [root, ...navHistory.map(x => x.selName)];
     const cur  = leftSelId ? getNode(leftSelId)?.item_name : null;
     let html = segs.map((s, i) =>
       `${i>0?'<span class="bc-sep"> › </span>':''}<span class="bc-seg">${s}</span>`
@@ -268,16 +269,13 @@
   /* 좌측 */
   function renderLeft() {
     const items = getLeftItems();
-    const lv    = levelOf(leftParentId);
-    const titles = { root: '집 목록', house: '구역 목록', zone: '항목 목록' };
-    document.getElementById('leftTitle').textContent = titles[lv];
+    document.getElementById('leftTitle').textContent = isAtRoot() ? '구역 목록' : '항목 목록';
     document.getElementById('lHead').innerHTML =
-      `<tr><th style="width:28px">#</th><th>${lv==='root'?'집 이름':'이름'}</th><th style="width:66px">코드</th><th style="width:36px">하위</th><th style="width:28px"></th></tr>`;
-    const empty = lv==='root' ? '＋ 추가 버튼으로 집을 등록하세요' : '＋ 추가 버튼으로 등록하세요';
+      `<tr><th style="width:28px">#</th><th>이름</th><th style="width:66px">코드</th><th style="width:36px">하위</th><th style="width:28px"></th></tr>`;
     document.getElementById('lBody').innerHTML = items.length
       ? items.map((r, i) => {
           const cnt  = getChildrenOf(r.item_id).length;
-          const icon = r.node_type==='H' ? '🏠' : r.node_type==='Z' ? '📁' : '📦';
+          const icon = r.node_type === 'Z' ? '📁' : '📦';
           return `<tr class="${leftSelId===r.item_id?'sel':''}" onclick="selLeft(${r.item_id})">
             <td>${i+1}</td>
             <td><b>${icon} ${esc(r.item_name)}</b></td>
@@ -286,7 +284,7 @@
             <td><button class="btn-g" onclick="event.stopPropagation();editNode(${r.item_id})" title="편집">✏️</button></td>
           </tr>`;
         }).join('')
-      : `<tr><td colspan="5"><div class="empty-td">${empty}</div></td></tr>`;
+      : `<tr><td colspan="5"><div class="empty-td">＋ 추가 버튼으로 등록하세요</div></td></tr>`;
   }
 
   /* 우측 */
@@ -376,7 +374,6 @@
   window.openAddLeft  = () => openNodeMo(null, leftParentId);
   window.openAddRight = () => { if (leftSelId) startNewRow(); };
 
-
   /* ══ 인라인 입력 ═══════════════════════════════════════════ */
   function captureInputs() {
     if (newRowState) {
@@ -447,22 +444,19 @@
   window.editNode = function(itemId) {
     const node = getNode(itemId);
     if (!node) return;
-    if (node.node_type==='H') openHouseMo(node);
-    else if (node.node_type==='Z') openZoneMo(node, currentHouseId);
+    if (node.node_type==='Z') openZoneMo(node);
     else openItemMo(node, null);
   };
 
   /* ══ 노드 추가 (좌측 + 버튼) ══════════════════════════════ */
   function openNodeMo(node, parentId) {
-    const lv = levelOf(parentId);
-    if (lv === 'root')  openHouseMo(node);
-    else if (lv === 'house') openZoneMo(node, parentId);
+    if (parentId===getHouse()?.item_id) openZoneMo(node);
     else openItemMo(node, { parentItemId: parentId });
   }
 
   /* ══ Zone 모달 ══════════════════════════════════════════════ */
-  function openZoneMo(z, targetHouseId) {
-    _mo = { type:'zone', isEdit:!!z, data:z||{}, targetHouseId: targetHouseId || currentHouseId };
+  function openZoneMo(z) {
+    _mo = { type:'zone', isEdit:!!z, data:z||{} };
     document.getElementById('moBx').innerHTML = `
       <div class="mo-hd"><h4>📁 ${z?'구역 편집':'새 구역 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
       <div class="mo-bd">
@@ -486,7 +480,7 @@
     const { isEdit, data } = _mo;
     const res = await fetch(isEdit?`/api/zones/${data.item_id}`:'/api/zones', {
       method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ zone_name:name, zone_code:code, sort_order:sort, house_id:_mo.targetHouseId })
+      body: JSON.stringify({ zone_name:name, zone_code:code, sort_order:sort })
     });
     if (res.ok) {
       const ret = await res.json();
@@ -559,54 +553,6 @@
   window.deleteMoItem = async function(bomId) {
     if (!confirm('삭제하면 하위 항목도 모두 삭제됩니다. 계속할까요?')) return;
     await fetch(`/api/bom/${bomId}`,{method:'DELETE'});
-    closeMo(); await loadAll();
-  };
-
-  /* ══ 집 모달 ═══════════════════════════════════════════════ */
-  window.openHouseMo = function openHouseMo(h) {
-    _mo = { type:'house', isEdit:!!h, data:h||{} };
-    document.getElementById('moBx').innerHTML = `
-      <div class="mo-hd"><h4>🏠 ${h?'집 편집':'새 집 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
-      <div class="mo-bd">
-        <div class="mf"><label>집 이름 *</label><input id="mhn" value="${esc(h?.item_name||'')}" placeholder="예: 우리집, 옆집, 본가" onkeydown="if(event.key==='Enter')saveMoHouse()"></div>
-        <div class="mf"><label>코드</label><input id="mhc" value="${esc(h?.item_code||'')}" placeholder="자동생성 (비워도 됨)" style="text-transform:uppercase;max-width:160px"></div>
-      </div>
-      <div class="mo-ft">
-        <button class="bs" onclick="saveMoHouse()">💾 저장</button>
-        ${h?`<button class="bd" onclick="deleteMoHouse(${h.item_id})">🗑 삭제</button>`:''}
-        <button class="bc" onclick="closeMo()">취소</button>
-      </div>`;
-    openMo(); setTimeout(()=>document.getElementById('mhn').focus(),80);
-  }
-
-  window.saveMoHouse = async function() {
-    const name = document.getElementById('mhn').value.trim();
-    const code = document.getElementById('mhc').value.trim().toUpperCase();
-    if (!name) { const el=document.getElementById('mhn'); el.classList.add('err'); el.focus(); return; }
-    const { isEdit, data } = _mo;
-    const res = await fetch(isEdit?`/api/houses/${data.item_id}`:'/api/houses', {
-      method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ house_name:name, house_code:code })
-    });
-    if (res.ok) {
-      const ret = await res.json();
-      closeMo();
-      if (!isEdit && ret.item_id) {
-        currentHouseId = ret.item_id;
-        leftParentId   = ret.item_id;
-        leftSelId      = null;
-        navHistory     = [];
-      }
-      await loadAll();
-    } else { alert((await res.json()).error||'저장 실패'); }
-  };
-
-  window.deleteMoHouse = async function(itemId) {
-    if (!confirm('집을 삭제하면 모든 구역과 항목도 삭제됩니다. 계속할까요?')) return;
-    await fetch(`/api/houses/${itemId}`, { method:'DELETE' });
-    if (currentHouseId === itemId) {
-      currentHouseId = null; leftParentId = null; leftSelId = null; navHistory = [];
-    }
     closeMo(); await loadAll();
   };
 
