@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="prog-version" content="1.0.0" data-date="2026-08-22">
+<title>Smart Apt — 환경 구성 및 작업 이력</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f1f5f9; color: #1e293b; font-size: 14px; }
+  .page { max-width: 980px; margin: 0 auto; padding: 32px 24px; }
+
+  .doc-header {
+    background: linear-gradient(135deg, #1a3a6e 0%, #0f766e 100%);
+    border-radius: 14px; padding: 32px 36px; color: #fff; margin-bottom: 28px;
+  }
+  .doc-header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .doc-header .sub { font-size: 13px; opacity: .75; }
+  .doc-header .ver { font-size: 11px; opacity: .5; margin-top: 4px; }
+  .badges { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-white  { background: rgba(255,255,255,.2); color: #fff; }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+
+  .section { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 20px; overflow: hidden; }
+  .section-head {
+    padding: 14px 22px; background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-head .num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1a3a6e; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0;
+  }
+  .section-head h2 { font-size: 15px; font-weight: 700; color: #1a3a6e; }
+  .section-body { padding: 22px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1a3a6e; color: #fff; padding: 8px 12px; text-align: left; font-size: 12px; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f0f4f8; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .tag-done   { background: #dcfce7; color: #166534; }
+  .tag-todo   { background: #fef9c3; color: #854d0e; }
+  .tag-warn   { background: #fee2e2; color: #991b1b; }
+
+  .arch-box {
+    display: flex; gap: 0; align-items: stretch;
+    border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+    font-size: 12px; margin: 4px 0 16px;
+  }
+  .arch-layer {
+    flex: 1; padding: 14px 12px; text-align: center;
+    border-right: 1px solid #e2e8f0;
+  }
+  .arch-layer:last-child { border-right: none; }
+  .arch-layer .lbl { font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; }
+  .arch-layer .name { font-weight: 700; color: #1a3a6e; font-size: 13px; }
+  .arch-layer .desc { color: #64748b; font-size: 11px; margin-top: 3px; line-height: 1.5; }
+  .arch-arrow { display: flex; align-items: center; font-size: 18px; color: #94a3b8; padding: 0 4px; flex-shrink: 0; }
+
+  .layer-ui   { background: #eff6ff; }
+  .layer-auth { background: #f0fdf4; }
+  .layer-api  { background: #fefce8; }
+  .layer-data { background: #fdf4ff; }
+
+  .code-block {
+    background: #1e293b; color: #e2e8f0; border-radius: 8px;
+    padding: 14px 18px; font-family: 'Consolas', monospace;
+    font-size: 12px; line-height: 1.7; margin: 8px 0;
+    overflow-x: auto;
+  }
+  .code-block .c  { color: #64748b; }
+  .code-block .k  { color: #7dd3fc; }
+  .code-block .s  { color: #86efac; }
+  .code-block .p  { color: #fbbf24; }
+
+  .file-tree { font-family: 'Consolas', monospace; font-size: 12px; line-height: 2; padding: 12px 18px; background: #f8fafc; border-radius: 8px; }
+  .file-tree .dir  { color: #1a3a6e; font-weight: 700; }
+  .file-tree .file { color: #374151; }
+  .file-tree .note { color: #94a3b8; margin-left: 8px; }
+
+  .step-list { list-style: none; }
+  .step-list li {
+    display: flex; gap: 14px; padding: 10px 0;
+    border-bottom: 1px solid #f0f4f8; align-items: flex-start;
+  }
+  .step-list li:last-child { border-bottom: none; }
+  .step-no {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #1a3a6e; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; flex-shrink: 0; margin-top: 1px;
+  }
+  .step-txt .title { font-weight: 700; font-size: 13px; }
+  .step-txt .desc  { color: #64748b; font-size: 12px; margin-top: 2px; line-height: 1.5; }
+
+  .info-box {
+    padding: 12px 16px; border-radius: 8px; font-size: 12px; line-height: 1.6; margin: 10px 0;
+  }
+  .info-blue   { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+  .info-yellow { background: #fefce8; border-left: 3px solid #f59e0b; color: #78350f; }
+  .info-green  { background: #f0fdf4; border-left: 3px solid #22c55e; color: #166534; }
+  .info-red    { background: #fef2f2; border-left: 3px solid #ef4444; color: #991b1b; }
+
+  .url-chip {
+    display: inline-block; background: #1a3a6e; color: #fff;
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-family: 'Consolas', monospace;
+  }
+
+  h3 { font-size: 13px; font-weight: 700; color: #1a3a6e; margin: 16px 0 8px; }
+  p  { color: #475569; font-size: 13px; line-height: 1.7; margin-bottom: 8px; }
+  ul { padding-left: 18px; color: #475569; font-size: 13px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 헤더 -->
+  <div class="doc-header">
+    <h1>Smart Apt — 환경 구성 및 작업 이력</h1>
+    <div class="sub">홈 인벤토리 관리 앱 · GitHub Pages + Google Drive 정적 SPA</div>
+    <div class="ver">v1.0.0 · 2026-08-22 작성</div>
+    <div class="badges">
+      <span class="badge badge-white">GitHub Pages</span>
+      <span class="badge badge-green">Google OAuth 2.0</span>
+      <span class="badge badge-yellow">Google Drive API</span>
+      <span class="badge badge-blue">정적 SPA</span>
+    </div>
+  </div>
+
+  <!-- 1. 프로젝트 개요 -->
+  <div class="section">
+    <div class="section-head"><div class="num">1</div><h2>프로젝트 개요</h2></div>
+    <div class="section-body">
+      <p>Smart Apt는 아파트·가정의 구역별 인벤토리(가전·가구·생활용품 등)를 관리하는 웹앱이다.<br>
+      서버·DB 없이 <strong>GitHub Pages(정적 호스팅)</strong>와 <strong>개인 Google Drive</strong>만으로 운영되며, PC·핸드폰 어디서든 동일한 데이터에 접근할 수 있다.</p>
+
+      <table style="margin-top:16px">
+        <tr><th width="160">항목</th><th>내용</th></tr>
+        <tr><td>서비스 URL</td><td><span class="url-chip">https://yywon78-glitch.github.io/smart-apt/</span></td></tr>
+        <tr><td>로컬 개발 URL</td><td><span class="url-chip">http://localhost:8080</span></td></tr>
+        <tr><td>GitHub 레포</td><td>https://github.com/yywon78-glitch/smart-apt</td></tr>
+        <tr><td>데이터 저장</td><td>개인 Google Drive → SmartApt/db.json</td></tr>
+        <tr><td>이미지 저장</td><td>개인 Google Drive → SmartApt/fp_*.png</td></tr>
+        <tr><td>인증 방식</td><td>Google OAuth 2.0 (Google Identity Services)</td></tr>
+        <tr><td>소스 위치</td><td>d:\ERP\suhdol_source\smart_apt\</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. 시스템 아키텍처 -->
+  <div class="section">
+    <div class="section-head"><div class="num">2</div><h2>시스템 아키텍처</h2></div>
+    <div class="section-body">
+      <h3>데이터 흐름</h3>
+      <div class="arch-box">
+        <div class="arch-layer layer-ui">
+          <div class="lbl">Browser</div>
+          <div class="name">SPA 화면</div>
+          <div class="desc">index.html<br>pages/*.html</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-auth">
+          <div class="lbl">Auth</div>
+          <div class="name">Google OAuth</div>
+          <div class="desc">google-auth.js<br>Access Token 발급</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-api">
+          <div class="lbl">Interceptor</div>
+          <div class="name">fetch 인터셉터</div>
+          <div class="desc">api-local.js<br>/api/* → Drive 변환</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-data">
+          <div class="lbl">Storage</div>
+          <div class="name">Google Drive</div>
+          <div class="desc">SmartApt/db.json<br>SmartApt/fp_*.png</div>
+        </div>
+      </div>
+
+      <div class="info-blue">
+        <strong>핵심 설계 — fetch 인터셉터 패턴</strong><br>
+        화면 파일(pages/*.html)은 기존 Apart ERP 코드 그대로 <code>/api/bom-tree</code>, <code>/api/zones</code> 등을 호출한다.<br>
+        <code>api-local.js</code>가 <code>window.fetch</code>를 오버라이드해서 이 요청들을 Google Drive 읽기/쓰기로 투명하게 전환한다.<br>
+        → 화면 코드 수정 없이 DB 없는 환경에서 동작.
+      </div>
+
+      <h3>배포 구조</h3>
+      <div class="arch-box">
+        <div class="arch-layer layer-ui">
+          <div class="lbl">Local Dev</div>
+          <div class="name">Node.js 서버</div>
+          <div class="desc">server.js<br>포트 8080<br>public/ 정적 서빙</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-auth">
+          <div class="lbl">Git Push</div>
+          <div class="name">GitHub</div>
+          <div class="desc">yywon78-glitch/<br>smart-apt<br>main 브랜치</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-api">
+          <div class="lbl">CI/CD</div>
+          <div class="name">GitHub Actions</div>
+          <div class="desc">.github/workflows/<br>pages.yml<br>public/ 자동 배포</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-layer layer-data">
+          <div class="lbl">Hosting</div>
+          <div class="name">GitHub Pages</div>
+          <div class="desc">yywon78-glitch.<br>github.io/<br>smart-apt/</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 파일 구조 -->
+  <div class="section">
+    <div class="section-head"><div class="num">3</div><h2>파일 구조</h2></div>
+    <div class="section-body">
+      <div class="file-tree">
+        <span class="dir">smart_apt/</span><br>
+        &nbsp;&nbsp;├── <span class="dir">.github/workflows/</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── <span class="file">pages.yml</span><span class="note">← GitHub Actions 배포 워크플로우</span><br>
+        &nbsp;&nbsp;├── <span class="dir">public/</span><span class="note">← GitHub Pages 배포 루트</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="file">index.html</span><span class="note">← SPA 쉘 (Google 로그인 → 메뉴 → 화면 로드)</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="dir">js/</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="file">google-auth.js</span><span class="note">← Google OAuth 2.0 인증 (token 관리)</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├── <span class="file">drive.js</span><span class="note">← Google Drive API 래퍼 (db.json 읽기/쓰기)</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── <span class="file">api-local.js</span><span class="note">← fetch 인터셉터 (/api/* → Drive)</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└── <span class="dir">pages/</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file">홈인벤토리등록.html</span><span class="note">v6.1.0</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file">홈인벤토리.html</span><span class="note">v5.1.0</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file">홈인벤토리구성도.html</span><span class="note">v7.0.0</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file">평면도.html</span><span class="note">v1.4.0</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file">대시보드.html</span><span class="note">v1.1.0</span><br>
+        &nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="file">bom.js, dashboard.js</span><span class="note">화면별 공통 모듈</span><br>
+        &nbsp;&nbsp;├── <span class="file">server.js</span><span class="note">← 로컬 개발용 (포트 8080, public/ 서빙)</span><br>
+        &nbsp;&nbsp;├── <span class="dir">docs/</span><span class="note">← 설계 문서</span><br>
+        &nbsp;&nbsp;├── <span class="dir">sql/</span><span class="note">← DB 스키마 참조용</span><br>
+        &nbsp;&nbsp;└── <span class="file">CLAUDE.md</span><span class="note">← AI 작업 지침 (백업 정책 등)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 핵심 파일 설명 -->
+  <div class="section">
+    <div class="section-head"><div class="num">4</div><h2>핵심 파일 설명</h2></div>
+    <div class="section-body">
+      <table>
+        <tr><th width="200">파일</th><th>역할</th><th width="130">비고</th></tr>
+        <tr>
+          <td><code>google-auth.js</code></td>
+          <td>Google Identity Services(GIS) 기반 OAuth 2.0 인증. Access Token을 sessionStorage에 저장해 세션 유지. <code>SmartAuth</code> 전역 객체 제공.</td>
+          <td>Client ID 설정 필요</td>
+        </tr>
+        <tr>
+          <td><code>drive.js</code></td>
+          <td>Google Drive API v3 래퍼. <code>SmartApt/</code> 폴더 자동 생성, <code>db.json</code> 읽기/쓰기/초기화(seed). <code>SmartDrive</code> 전역 객체 제공.</td>
+          <td>drive.file 스코프</td>
+        </tr>
+        <tr>
+          <td><code>api-local.js</code></td>
+          <td><code>window.fetch</code> 오버라이드. <code>/api/*</code> 요청을 Drive의 db.json 읽기/쓰기로 변환. bom-tree, zones, items, floorplans 등 전체 CRUD 처리.</td>
+          <td>index.html에서 최초 로드</td>
+        </tr>
+        <tr>
+          <td><code>public/index.html</code></td>
+          <td>SPA 쉘. Google 로그인 UI → 로그인 성공 시 메뉴 표시 → pages/*.html 동적 로드. js 파일 로드 순서 관리.</td>
+          <td>v2.0.0</td>
+        </tr>
+        <tr>
+          <td><code>.github/workflows/pages.yml</code></td>
+          <td>main 브랜치 push 시 <code>public/</code> 폴더를 GitHub Pages로 자동 배포.</td>
+          <td>enablement: true 포함</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5. Google Cloud 설정 -->
+  <div class="section">
+    <div class="section-head"><div class="num">5</div><h2>Google Cloud 설정</h2></div>
+    <div class="section-body">
+      <table>
+        <tr><th width="200">항목</th><th>값 / 설명</th></tr>
+        <tr><td>OAuth Client ID</td><td><code>308237857814-tg3cl5kvctrb23mt9hi89ttebl5b7qc9.apps.googleusercontent.com</code></td></tr>
+        <tr><td>활성화된 API</td><td>Google Drive API v3, OAuth 2.0 (userinfo)</td></tr>
+        <tr><td>OAuth 스코프</td><td>drive.file, userinfo.profile, userinfo.email</td></tr>
+        <tr><td>승인된 JS 출처</td><td>http://localhost:8080 (로컬)<br><span class="tag tag-warn">미등록</span> https://yywon78-glitch.github.io (GitHub Pages — 추가 필요)</td></tr>
+      </table>
+
+      <div class="info-red" style="margin-top:16px">
+        <strong>⚠️ 필수 작업 — GitHub Pages URL OAuth 등록</strong><br>
+        현재 <code>https://yywon78-glitch.github.io</code>가 Google Cloud Console의 "승인된 JavaScript 출처"에 없으면 GitHub Pages에서 로그인 불가.<br><br>
+        <strong>처리 방법:</strong><br>
+        1. console.cloud.google.com → API 및 서비스 → 사용자 인증 정보<br>
+        2. OAuth 2.0 클라이언트 ID 클릭<br>
+        3. 승인된 JavaScript 출처에 <code>https://yywon78-glitch.github.io</code> 추가<br>
+        4. 저장
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. GitHub 배포 설정 -->
+  <div class="section">
+    <div class="section-head"><div class="num">6</div><h2>GitHub 배포 설정</h2></div>
+    <div class="section-body">
+      <table>
+        <tr><th width="200">항목</th><th>값</th></tr>
+        <tr><td>GitHub 계정</td><td>yywon78-glitch</td></tr>
+        <tr><td>레포지토리</td><td>smart-apt (Public)</td></tr>
+        <tr><td>기본 브랜치</td><td>main</td></tr>
+        <tr><td>Pages Source</td><td>GitHub Actions</td></tr>
+        <tr><td>배포 폴더</td><td>public/</td></tr>
+        <tr><td>워크플로우</td><td>.github/workflows/pages.yml</td></tr>
+        <tr><td>서비스 URL</td><td>https://yywon78-glitch.github.io/smart-apt/</td></tr>
+      </table>
+
+      <h3>pages.yml 주요 설정</h3>
+      <div class="code-block">
+<span class="c"># main 브랜치 push 시 자동 실행</span>
+<span class="k">on</span>: push / branches: [main]
+
+<span class="c"># Pages 배포에 필요한 권한</span>
+<span class="k">permissions</span>: pages: write / id-token: write
+
+<span class="c"># public/ 폴더를 Pages artifact로 업로드 후 배포</span>
+<span class="k">- uses</span>: <span class="s">actions/configure-pages@v4</span>
+  <span class="k">with</span>: enablement: <span class="p">true</span>   <span class="c"># Pages 자동 활성화</span>
+<span class="k">- uses</span>: <span class="s">actions/upload-pages-artifact@v3</span>
+  <span class="k">with</span>: path: <span class="s">public</span>
+<span class="k">- uses</span>: <span class="s">actions/deploy-pages@v4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 작업 이력 -->
+  <div class="section">
+    <div class="section-head"><div class="num">7</div><h2>작업 이력 (2026-08-22)</h2></div>
+    <div class="section-body">
+      <ul class="step-list">
+        <li>
+          <div class="step-no">1</div>
+          <div class="step-txt">
+            <div class="title">프로젝트 구조 분석 <span class="tag tag-done">완료</span></div>
+            <div class="desc">smart_apt 프로젝트가 포트 8080 정적 서버임을 확인. /api/* 요청이 api-local.js fetch 인터셉터로 처리되는 구조 파악.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">2</div>
+          <div class="step-txt">
+            <div class="title">빈 화면 원인 파악 <span class="tag tag-done">완료</span></div>
+            <div class="desc">Google 로그인 성공 후 Drive에 SmartApt/db.json이 처음 생성되면 seed 데이터(우리집만, bom 없음)로 시작되어 구역 목록이 비어있는 것이 정상 동작임을 확인.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">3</div>
+          <div class="step-txt">
+            <div class="title">GitHub 레포 생성 및 원격 연결 <span class="tag tag-done">완료</span></div>
+            <div class="desc">사용자가 github.com/new에서 smart-apt 레포 생성. git remote add origin, git branch -M main, git push -u origin main 완료. 커밋 ID: c7cd247</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">4</div>
+          <div class="step-txt">
+            <div class="title">GitHub Actions 배포 워크플로우 작성 <span class="tag tag-done">완료</span></div>
+            <div class="desc">.github/workflows/pages.yml 생성. public/ 폴더를 GitHub Pages로 자동 배포하는 워크플로우.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">5</div>
+          <div class="step-txt">
+            <div class="title">첫 배포 실패 → enablement 옵션 추가 <span class="tag tag-done">완료</span></div>
+            <div class="desc">첫 배포 시 "Get Pages site failed" 에러 발생. actions/configure-pages에 enablement: true 추가 후 재push. 커밋 ID: 7db83f9</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">6</div>
+          <div class="step-txt">
+            <div class="title">GitHub Pages OAuth 출처 등록 <span class="tag tag-todo">미완료</span></div>
+            <div class="desc">Google Cloud Console에서 https://yywon78-glitch.github.io 를 승인된 JavaScript 출처에 추가해야 핸드폰에서 로그인 가능.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-no">7</div>
+          <div class="step-txt">
+            <div class="title">GitHub Pages 배포 최종 확인 <span class="tag tag-todo">미완료</span></div>
+            <div class="desc">Actions 탭에서 워크플로우 성공 확인 후 https://yywon78-glitch.github.io/smart-apt/ 접속 테스트 필요.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 8. 접속 방법 -->
+  <div class="section">
+    <div class="section-head"><div class="num">8</div><h2>접속 방법</h2></div>
+    <div class="section-body">
+      <table>
+        <tr><th width="160">환경</th><th>URL</th><th width="200">조건</th></tr>
+        <tr>
+          <td>로컬 PC (개발)</td>
+          <td><code>http://localhost:8080</code></td>
+          <td>server.js 실행 중</td>
+        </tr>
+        <tr>
+          <td>같은 WiFi 핸드폰</td>
+          <td><code>http://192.168.45.76:8080</code></td>
+          <td>PC 켜져 있어야 함</td>
+        </tr>
+        <tr>
+          <td>외부 / 핸드폰 (권장)</td>
+          <td><code>https://yywon78-glitch.github.io/smart-apt/</code></td>
+          <td>GitHub Pages 배포 완료 + Google OAuth 등록 후</td>
+        </tr>
+      </table>
+
+      <div class="info-green" style="margin-top:16px">
+        <strong>데이터 동기화</strong><br>
+        모든 환경에서 같은 Google 계정으로 로그인하면 동일한 Drive의 db.json을 공유하므로 PC에서 입력한 데이터를 핸드폰에서 바로 볼 수 있다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. 남은 작업 -->
+  <div class="section">
+    <div class="section-head"><div class="num">9</div><h2>남은 작업</h2></div>
+    <div class="section-body">
+      <table>
+        <tr><th width="40">#</th><th>작업</th><th width="100">우선순위</th><th width="120">상태</th></tr>
+        <tr>
+          <td>1</td>
+          <td>Google Cloud Console → 승인된 JS 출처에 <code>https://yywon78-glitch.github.io</code> 추가</td>
+          <td>필수</td>
+          <td><span class="tag tag-todo">미완료</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>GitHub Pages 배포 성공 확인 (Actions 탭 초록 체크)</td>
+          <td>필수</td>
+          <td><span class="tag tag-todo">미완료</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>핸드폰으로 GitHub Pages URL 접속 → Google 로그인 → 구역 추가 동작 확인</td>
+          <td>필수</td>
+          <td><span class="tag tag-todo">미완료</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>초기 데이터 입력 (구역: 거실·주방·침실 등 → 항목 등록)</td>
+          <td>일반</td>
+          <td><span class="tag tag-todo">미완료</span></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
