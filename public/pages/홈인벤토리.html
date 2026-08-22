@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.3.0" data-date="2026-08-21">
+<meta name="prog-version" content="5.4.0" data-date="2026-08-21">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -132,18 +132,19 @@ var hdrCollapsed = new Set();
 var maxDepth = 0;
 var allZones = [];
 var allBomFlat = [];
-var houseData = { house_id: 1, house_code: 'H000001', house_name: '우리집' };
+var allHouses = [];
 
 /* ── 초기 로드 ── */
 (async function () {
   allBomFlat = await fetch('/api/bom-tree').then(r => r.json());
-  const hNode = allBomFlat.find(r => r.node_type === 'H');
-  if (hNode) houseData = { house_id: hNode.item_id, house_code: hNode.item_code, house_name: hNode.item_name };
-  allZones = allBomFlat.filter(r => r.node_type === 'Z');
-  const sel = document.getElementById('selZone');
+  allHouses  = allBomFlat.filter(r => r.node_type === 'H');
+  allZones   = allBomFlat.filter(r => r.node_type === 'Z');
+  const sel  = document.getElementById('selZone');
   allZones.forEach(z => {
+    const house = allHouses.find(h => h.item_id === z.parent_item_id);
     const o = document.createElement('option');
-    o.value = z.item_id; o.textContent = z.item_name;
+    o.value = z.item_id;
+    o.textContent = allHouses.length > 1 ? `[${house?.item_name||'?'}] ${z.item_name}` : z.item_name;
     sel.appendChild(o);
   });
   loadTree();
@@ -505,8 +506,8 @@ async function loadTree() {
   const filterZoneId = parseInt(zone) || null;
   const zones = buildTree(flat, filterZoneId);
 
-  const tops = [{ id: 0, name: `🏠 ${houseData.house_name}`, code: houseData.house_code }];
-  zones.forEach(z => z.topId = 0);
+  const tops = allHouses.map(h => ({ id: h.item_id, name: `🏠 ${h.item_name}`, code: h.item_code }));
+  zones.forEach(z => { z.topId = z.parent_item_id; });
 
   collapsed.clear(); hdrCollapsed.clear();
   renderTree(tops, zones);

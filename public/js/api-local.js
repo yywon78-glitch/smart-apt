@@ -1,6 +1,6 @@
 /*
  * api-local.js — fetch 인터셉터
- * @version 1.1.0
+ * @version 1.2.0
  *
  * window.fetch를 오버라이드해서 /api/* 요청을
  * Google Drive 로컬 처리로 대체한다.
@@ -80,8 +80,10 @@
         const zones = db.items
           .filter(i => i.node_type === 'Z')
           .map(i => {
-            const b = db.bom.find(b => b.child_item_id === i.item_id);
-            return { bom_id: b?.bom_id, zone_id: i.item_id, zone_code: i.item_code, zone_name: i.item_name, sort_order: i.sort_order };
+            const b     = db.bom.find(b => b.child_item_id === i.item_id);
+            const house = b ? db.items.find(h => h.item_id === b.parent_item_id && h.node_type === 'H') : null;
+            return { bom_id: b?.bom_id, zone_id: i.item_id, zone_code: i.item_code, zone_name: i.item_name,
+                     sort_order: i.sort_order, house_id: house?.item_id||null, house_name: house?.item_name||null };
           })
           .sort((a, b) => a.sort_order - b.sort_order);
         return ok(zones);
@@ -105,9 +107,11 @@
             const i = db.items.find(i => i.item_id === b.child_item_id);
             return s + (i?.std_price || 0) * (b.qty || 1);
           }, 0);
-          const req = sum(b => b.is_required === 'Y');
-          const opt = sum(b => b.is_required !== 'Y');
-          return { zone_name: z.item_name, req_cost: req, opt_cost: opt, total_cost: req + opt };
+          const req   = sum(b => b.is_required === 'Y');
+          const opt   = sum(b => b.is_required !== 'Y');
+          const hBom  = db.bom.find(b => b.child_item_id === z.item_id);
+          const house = hBom ? db.items.find(h => h.item_id === hBom.parent_item_id && h.node_type === 'H') : null;
+          return { zone_name: z.item_name, house_name: house?.item_name||null, req_cost: req, opt_cost: opt, total_cost: req + opt };
         }).filter(z => z.total_cost > 0);
         return ok(result);
       }

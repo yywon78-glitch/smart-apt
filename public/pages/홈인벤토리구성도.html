@@ -1,4 +1,4 @@
-<meta name="prog-version" content="7.0.0" data-date="2026-08-21">
+<meta name="prog-version" content="7.1.0" data-date="2026-08-23">
 <style>
   #chartWrap {
     width:100%; height:calc(100vh - 160px);
@@ -75,6 +75,7 @@
 </style>
 
 <div class="tree-filter" style="margin-bottom:12px;">
+  <select id="selHouse"><option value="">집 전체</option></select>
   <select id="selZone"><option value="">구역 전체</option></select>
   <label><input type="checkbox" id="chkRequired"> 필수만 보기</label>
   <button class="btn-sm btn-primary" onclick="reload()">조회</button>
@@ -103,20 +104,42 @@
                    '#8b5cf6','#ec4899','#06b6d4','#84cc16'];
 
   /* ── 기초 데이터 ── */
-  let houseData = { house_id: 1, house_code: 'H000001', house_name: '우리집' };
   const allBomFlat = await fetch('/api/bom-tree').then(r => r.json());
-  const hNode = allBomFlat.find(r => r.node_type === 'H');
-  if (hNode) houseData = { house_id: hNode.item_id, house_code: hNode.item_code, house_name: hNode.item_name };
-  const zones0 = allBomFlat.filter(r => r.node_type === 'Z');
-  const selEl  = document.getElementById('selZone');
-  zones0.forEach(z => {
+  const allHouses  = allBomFlat.filter(r => r.node_type === 'H');
+  const zones0     = allBomFlat.filter(r => r.node_type === 'Z');
+
+  /* 집 선택 드롭다운 */
+  const selHouseEl = document.getElementById('selHouse');
+  allHouses.forEach(h => {
     const o = document.createElement('option');
-    o.value = z.zone_id; o.textContent = z.zone_name;
+    o.value = h.item_id; o.textContent = `🏠 ${h.item_name}`;
+    selHouseEl.appendChild(o);
+  });
+  if (allHouses.length === 1) selHouseEl.style.display = 'none'; // 집 하나면 숨김
+
+  /* 구역 선택 드롭다운 */
+  const selEl = document.getElementById('selZone');
+  zones0.forEach(z => {
+    const house = allHouses.find(h => h.item_id === z.parent_item_id);
+    const o = document.createElement('option');
+    o.value = z.item_id;
+    o.textContent = allHouses.length > 1 ? `[${house?.item_name||'?'}] ${z.item_name}` : z.item_name;
+    o.dataset.houseId = house?.item_id || '';
     selEl.appendChild(o);
   });
 
-  /* ── 데이터 → 계층 (allZones 포함 → 빈 구역도 표시) ── */
-  function toHierarchy(flat, filterZoneId) {
+  /* 집 선택 시 구역 드롭다운 필터 */
+  selHouseEl.addEventListener('change', () => {
+    const hid = selHouseEl.value;
+    Array.from(selEl.options).forEach(o => {
+      if (!o.value) return; // "전체" 옵션
+      o.hidden = hid ? o.dataset.houseId !== hid : false;
+    });
+    selEl.value = '';
+  });
+
+  /* ── 데이터 → 계층 ── */
+  function toHierarchy(flat, filterHouseId, filterZoneId) {
     function mkItems(parentId) {
       return flat.filter(r => r.parent_item_id === parentId && r.node_type === 'I')
         .sort((a,b) => +a.sort_order - +b.sort_order)
@@ -124,12 +147,19 @@
                      qty:r.qty, price:+r.std_price, req:r.is_required,
                      children: mkItems(r.item_id) }));
     }
-    const zones = flat.filter(r => r.node_type === 'Z')
-      .filter(r => !filterZoneId || r.item_id === filterZoneId)
-      .sort((a,b) => +a.sort_order - +b.sort_order)
-      .map(z => ({ id:`z${z.item_id}`, name:z.item_name, code:z.item_code,
-                   sort:+z.sort_order, children: mkItems(z.item_id) }));
-    return { id:'root', name: houseData.house_name, code: houseData.house_code, children: zones };
+    const houses = flat.filter(r => r.node_type === 'H')
+      .filter(r => !filterHouseId || r.item_id === parseInt(filterHouseId));
+    const children = houses.map(h => {
+      const zones = flat.filter(r => r.node_type === 'Z' && r.parent_item_id === h.item_id)
+        .filter(r => !filterZoneId || r.item_id === filterZoneId)
+        .sort((a,b) => +a.sort_order - +b.sort_order)
+        .map(z => ({ id:`z${z.item_id}`, name:z.item_name, code:z.item_code,
+                     sort:+z.sort_order, children: mkItems(z.item_id) }));
+      return { id:`h${h.item_id}`, name:h.item_name, code:h.item_code, children: zones };
+    });
+    return { id:'root', name: children.length===1 ? children[0].name : '홈 자산관리',
+             code: children.length===1 ? children[0].code : '',
+             children: children.length===1 ? children[0].children : children };
   }
 
   /* ── D3 셋업 ── */
@@ -491,15 +521,16 @@
 
   /* ── 데이터 로드 ── */
   async function reload() {
+    const house    = document.getElementById('selHouse')?.value||'';
     const zone     = document.getElementById('selZone')?.value||'';
     const required = document.getElementById('chkRequired')?.checked?'Y':'';
     const params   = new URLSearchParams();
-    if (zone)     params.set('zone', zone);
     if (required) params.set('required', required);
 
     const flat = await fetch('/api/bom-tree?'+params).then(r=>r.json());
-    const filterZoneId = parseInt(zone) || null;
-    const data = toHierarchy(flat, filterZoneId);
+    const filterHouseId = parseInt(house) || null;
+    const filterZoneId  = parseInt(zone)  || null;
+    const data = toHierarchy(flat, filterHouseId, filterZoneId);
     colorMap = new Map();
     (data.children||[]).forEach((z,i)=>colorMap.set(z.id, PALETTE[i%PALETTE.length]));
     root = d3.hierarchy(data);

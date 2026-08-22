@@ -1,4 +1,4 @@
-<meta name="prog-version" content="1.4.0" data-date="2026-08-21">
+<meta name="prog-version" content="1.5.0" data-date="2026-08-21">
 <style>
   .fp-bar {
     display: flex; gap: 8px; align-items: center;
@@ -626,9 +626,10 @@
   // ── apt_zone 목록 로드 ──
   async function loadAptZones() {
     aptZones = await fetch('/api/zones').then(r => r.json()).catch(() => []);
-    const sel = document.getElementById('zdZone');
+    const sel    = document.getElementById('zdZone');
+    const multiH = new Set(aptZones.map(z => z.house_id).filter(Boolean)).size > 1;
     sel.innerHTML = '<option value="">— 연결 안함 —</option>' +
-      aptZones.map(z => `<option value="${z.zone_id}">${z.zone_name}</option>`).join('');
+      aptZones.map(z => `<option value="${z.zone_id}">${multiH && z.house_name ? `[${z.house_name}] ` : ''}${z.zone_name}</option>`).join('');
   }
 
   // ── 도면 선택 변경 ──
