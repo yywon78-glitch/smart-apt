@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.2.0" data-date="2026-08-23">
+<meta name="prog-version" content="6.2.1" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -627,7 +627,7 @@
   };
 
   /* ══ 집 모달 ═══════════════════════════════════════════════ */
-  function openHouseMo(h) {
+  window.openHouseMo = function openHouseMo(h) {
     _mo = { type:'house', isEdit:!!h, data:h||{} };
     document.getElementById('moBx').innerHTML = `
       <div class="mo-hd"><h4>🏠 ${h?'집 편집':'새 집 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
