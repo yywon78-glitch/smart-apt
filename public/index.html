@@ -2,223 +2,213 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="prog-version" content="2.0.0" data-date="2026-08-22">
 <title>홈 자산관리</title>
-<script>
-  /* 파일로 직접 열었을 때 → 서버가 떠있으면 자동 리다이렉트 */
-  if (location.protocol === 'file:') {
-    fetch('http://localhost:3000/api/zones')
-      .then(function(r) {
-        if (r.ok) location.href = 'http://localhost:3000';
-      })
-      .catch(function() {
-        document.write('<div style="font-family:Malgun Gothic;display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#f4f6fa">'
-          + '<div style="font-size:48px">🏠</div>'
-          + '<div style="font-size:20px;font-weight:700;color:#1a3a6e">홈 자산관리</div>'
-          + '<div style="color:#6b7280;font-size:14px">서버가 실행되지 않았습니다</div>'
-          + '<div style="color:#6b7280;font-size:13px">📂 Apart 폴더의 <b>서버시작.bat</b> 을 더블클릭하세요</div>'
-          + '</div>');
-      });
-  }
-</script>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+
+<!-- Smart Apt 핵심 모듈 (페이지 스크립트보다 먼저 로드) -->
+<script src="./js/google-auth.js"></script>
+<script src="./js/drive.js"></script>
+<script src="./js/api-local.js"></script>
+
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Malgun Gothic', sans-serif; background: #f4f6fa; color: #222; height: 100vh; display: flex; overflow: hidden; }
 
-  /* ─── 사이드바 ─── */
+  /* ── 로그인 오버레이 ── */
+  #loginOverlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #1a3a6e 0%, #0f766e 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #loginOverlay.hidden { display: none; }
+  .login-box {
+    background: #fff; border-radius: 16px; padding: 48px 40px;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    width: 340px;
+  }
+  .login-icon { font-size: 52px; margin-bottom: 16px; }
+  .login-title { font-size: 20px; font-weight: 800; color: #1a3a6e; margin-bottom: 8px; }
+  .login-sub   { font-size: 13px; color: #6b7280; margin-bottom: 32px; line-height: 1.6; }
+  .login-btn {
+    width: 100%; padding: 13px 0; border-radius: 8px; border: none;
+    background: #1a3a6e; color: #fff; font-size: 14px; font-weight: 700;
+    font-family: inherit; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 10px; transition: background .15s;
+  }
+  .login-btn:hover { background: #24508f; }
+  .login-btn svg { width: 20px; height: 20px; }
+  #loginLoading { font-size: 13px; color: #6b7280; margin-top: 16px; display: none; }
+
+  /* ── 사이드바 ── */
   #sidebar {
-    width: 220px;
-    background: #1a3a6e;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    transition: width 0.25s ease;
-    overflow: hidden;
+    width: 220px; background: #1a3a6e; color: #fff;
+    display: flex; flex-direction: column; flex-shrink: 0;
+    transition: width .25s ease; overflow: hidden;
   }
   #sidebar.collapsed { width: 0; }
-  .brand {
-    padding: 18px 16px;
-    font-size: 15px;
-    font-weight: 700;
-    background: #12295a;
-    border-bottom: 1px solid #243d7e;
-  }
+  .brand { padding: 18px 16px; font-size: 15px; font-weight: 700; background: #12295a; border-bottom: 1px solid #243d7e; }
   .nav-section { padding: 8px 0; }
   .nav-label {
-    padding: 8px 16px 4px;
-    font-size: 10px;
-    color: #8a9bc5;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
+    padding: 8px 16px 4px; font-size: 10px; color: #8a9bc5;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
   }
   .nav-label:hover { color: #b0c4de; }
-  .nav-label .arrow { transition: transform 0.2s; font-size: 9px; }
+  .nav-label .arrow { transition: transform .2s; font-size: 9px; }
   .nav-label.closed .arrow { transform: rotate(-90deg); }
-  .nav-items { overflow: hidden; transition: max-height 0.25s ease; max-height: 500px; }
+  .nav-items { overflow: hidden; transition: max-height .25s ease; max-height: 500px; }
   .nav-items.closed { max-height: 0; }
   .nav-item {
-    padding: 11px 16px;
-    cursor: pointer;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border-left: 3px solid transparent;
-    transition: background 0.15s;
+    padding: 11px 16px; cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    border-left: 3px solid transparent; transition: background .15s;
   }
   .nav-item:hover { background: #243d7e; }
   .nav-item.active { background: #243d7e; border-left-color: #5b8def; color: #7bb3ff; }
 
-  /* ─── 메인 영역 ─── */
+  /* ── 메인 ── */
   #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
   #topbar {
-    height: 52px;
-    background: #fff;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    font-size: 15px;
-    font-weight: 600;
-    flex-shrink: 0;
+    height: 52px; background: #fff; border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; font-size: 15px; font-weight: 600; flex-shrink: 0;
   }
-  /* ─── 사이드바 토글 탭 ─── */
   #sidebarTab {
-    width: 14px;
-    background: #243d7e;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: #7bb3ff;
-    font-size: 10px;
-    transition: background 0.15s;
-    border-right: 1px solid #1a3a6e;
+    width: 14px; background: #243d7e; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #7bb3ff; font-size: 10px;
+    transition: background .15s; border-right: 1px solid #1a3a6e;
   }
   #sidebarTab:hover { background: #3a5298; }
-
-  .topbar-left { display: flex; align-items: center; gap: 8px; }
+  .topbar-left  { display: flex; align-items: center; gap: 8px; }
   .topbar-right { display: flex; align-items: center; gap: 10px; }
 
-  /* ─── 서버 상태 ─── */
-  #serverStatus {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; color: #6b7280; font-weight: 400;
+  /* ── 사용자 정보 (topbar 우측) ── */
+  #userInfo {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: #374151;
     background: #f8faff; border: 1px solid #e2e8f0;
-    border-radius: 20px; padding: 4px 10px;
+    border-radius: 20px; padding: 4px 12px 4px 4px;
   }
-  #statusDot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #d1d5db; flex-shrink: 0;
-    transition: background 0.3s;
+  #userAvatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #dbeafe; display: flex; align-items: center;
+    justify-content: center; font-size: 12px; overflow: hidden; flex-shrink: 0;
   }
-  #statusDot.ok  { background: #16a34a; box-shadow: 0 0 0 3px #bbf7d033; }
-  #statusDot.err { background: #dc2626; box-shadow: 0 0 0 3px #fee2e233; }
-  #btnConnect {
-    padding: 3px 10px; background: #1a3a6e; color: #fff;
-    border: none; border-radius: 10px; font-size: 11px;
-    cursor: pointer; font-family: inherit; display: none;
+  #userAvatar img { width: 100%; height: 100%; object-fit: cover; }
+  #userName { font-weight: 600; color: #1a3a6e; }
+  #btnLogout {
+    padding: 3px 10px; background: #f1f5f9; color: #dc2626;
+    border: 1px solid #fca5a5; border-radius: 10px; font-size: 11px;
+    cursor: pointer; font-family: inherit;
   }
-  #btnConnect:hover { background: #24508f; }
+  #btnLogout:hover { background: #fee2e2; }
 
   #btnClose {
-    padding: 5px 14px;
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-    display: none;
+    padding: 5px 14px; background: #f1f5f9; color: #475569;
+    border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px;
+    cursor: pointer; font-family: inherit; display: none;
   }
   #btnClose:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
   #content { flex: 1; overflow: auto; padding: 20px 24px; }
 
-  /* ─── 대시보드 ─── */
-  .dash-kpi { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
-  .kpi-card {
-    background: #fff; border-radius: 10px; padding: 16px 20px; min-width: 150px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.07); border-top: 3px solid #1a3a6e;
+  /* ── DB 로딩 스피너 ── */
+  #dbLoading {
+    position: fixed; inset: 0; z-index: 8000;
+    background: rgba(255,255,255,.85);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    font-size: 14px; color: #1a3a6e;
   }
+  #dbLoading.hidden { display: none; }
+  .spinner {
+    width: 36px; height: 36px; border: 4px solid #dbeafe;
+    border-top-color: #1a3a6e; border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── 공통 스타일 ── */
+  .dash-kpi { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .kpi-card { background: #fff; border-radius: 10px; padding: 16px 20px; min-width: 150px; box-shadow: 0 2px 6px rgba(0,0,0,.07); border-top: 3px solid #1a3a6e; }
   .kpi-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
   .kpi-value { font-size: 26px; font-weight: 700; color: #1a3a6e; }
   .dash-section { margin-bottom: 20px; }
   .dash-section h3 { font-size: 13px; color: #1a3a6e; font-weight: 700; margin-bottom: 10px; }
   .quick-grid { display: flex; gap: 10px; flex-wrap: wrap; }
-  .quick-btn {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
-    padding: 14px 18px; cursor: pointer; font-size: 13px; font-family: inherit;
-    display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow 0.15s, border-color 0.15s;
-  }
+  .quick-btn { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; cursor: pointer; font-size: 13px; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .15s, border-color .15s; }
   .quick-btn:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: #93c5fd; }
   .quick-btn .icon { font-size: 24px; }
   .quick-btn .name { color: #1a3a6e; font-weight: 600; }
-
-  /* ─── 비용 카드 ─── */
   .cost-grid { display: flex; gap: 10px; flex-wrap: wrap; }
-  .cost-card {
-    background: #fff; border-radius: 10px; padding: 12px 16px; min-width: 140px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.07); border-top: 3px solid #1a3a6e;
-  }
+  .cost-card { background: #fff; border-radius: 10px; padding: 12px 16px; min-width: 140px; box-shadow: 0 2px 6px rgba(0,0,0,.07); border-top: 3px solid #1a3a6e; }
   .cost-card .zone { font-size: 13px; font-weight: 700; color: #1a3a6e; margin-bottom: 6px; }
   .cost-card .row  { font-size: 12px; color: #555; display: flex; justify-content: space-between; gap: 10px; padding: 1px 0; }
   .cost-card .row.total { font-weight: 700; color: #222; border-top: 1px solid #eee; margin-top: 4px; padding-top: 4px; }
-
-  /* ─── 조회/등록 화면 공통 ─── */
-  .filter-bar {
-    background: #fff; padding: 14px 16px; display: flex; gap: 12px; align-items: center;
-    border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.07); flex-wrap: wrap; margin-bottom: 16px;
-  }
-  .filter-bar select, .filter-bar input[type=text] {
-    padding: 7px 10px; border: 1px solid #cdd5e0; border-radius: 6px; font-size: 13px; font-family: inherit;
-  }
+  .filter-bar { background: #fff; padding: 14px 16px; display: flex; gap: 12px; align-items: center; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.07); flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-bar select, .filter-bar input[type=text] { padding: 7px 10px; border: 1px solid #cdd5e0; border-radius: 6px; font-size: 13px; font-family: inherit; }
   .filter-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
   .btn { padding: 7px 18px; background: #1a3a6e; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
   .btn:hover { background: #24508f; }
-  .btn-reset { background: #6b7280; }
-  .btn-reset:hover { background: #4b5563; }
-  .btn-save { background: #16a34a; }
-  .btn-save:hover { background: #15803d; }
-
+  .btn-reset { background: #6b7280; } .btn-reset:hover { background: #4b5563; }
+  .btn-save  { background: #16a34a; } .btn-save:hover  { background: #15803d; }
   .table-wrap { background: #fff; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.07); overflow: hidden; }
   .table-info { padding: 10px 14px; font-size: 12px; color: #666; border-bottom: 1px solid #eee; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { background: #1a3a6e; color: #fff; padding: 9px 11px; text-align: left; font-weight: 600; white-space: nowrap; }
   td { padding: 8px 11px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
   tr:hover td { background: #f0f4ff; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .badge   { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
   .badge-y { background: #dcfce7; color: #166534; }
   .badge-n { background: #f3f4f6; color: #6b7280; }
-  .price { text-align: right; font-variant-numeric: tabular-nums; }
+  .price   { text-align: right; font-variant-numeric: tabular-nums; }
   .zone-tag { background: #dbeafe; color: #1d4ed8; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-  .loading { text-align: center; padding: 30px; color: #999; font-size: 13px; }
-
-  /* ─── 등록 화면 ─── */
+  .loading  { text-align: center; padding: 30px; color: #999; font-size: 13px; }
   .form-wrap { background: #fff; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.07); padding: 24px; }
   .form-row { display: flex; gap: 16px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
   .form-row label { width: 100px; font-size: 13px; color: #444; flex-shrink: 0; }
-  .form-row input, .form-row select, .form-row textarea {
-    flex: 1; padding: 7px 10px; border: 1px solid #cdd5e0; border-radius: 6px; font-size: 13px; font-family: inherit;
-  }
+  .form-row input, .form-row select, .form-row textarea { flex: 1; padding: 7px 10px; border: 1px solid #cdd5e0; border-radius: 6px; font-size: 13px; font-family: inherit; }
   .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 </style>
 </head>
 <body>
 
+<!-- 로그인 오버레이 -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-icon">🏠</div>
+    <div class="login-title">홈 자산관리</div>
+    <div class="login-sub">구글 계정으로 로그인하면<br>내 데이터가 Google Drive에 저장됩니다</div>
+    <button class="login-btn" onclick="SmartAuth.signIn()">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Google로 로그인
+    </button>
+    <div id="loginLoading">로그인 중...</div>
+  </div>
+</div>
+
+<!-- DB 로딩 스피너 -->
+<div id="dbLoading" class="hidden">
+  <div class="spinner"></div>
+  <div>Drive에서 데이터 불러오는 중...</div>
+</div>
+
+<!-- 사이드바 -->
 <nav id="sidebar">
   <div class="brand">🏠 홈 자산관리</div>
 </nav>
 <div id="sidebarTab" onclick="toggleSidebar()" title="메뉴 열기/닫기">◀</div>
 
+<!-- 메인 -->
 <div id="main">
   <div id="topbar">
     <div class="topbar-left">
@@ -226,74 +216,49 @@
       <span id="page-title">대시보드</span>
     </div>
     <div class="topbar-right">
-      <div id="serverStatus">
-        <span id="statusDot"></span>
-        <span id="statusText">확인 중...</span>
-        <button id="btnConnect" onclick="checkServer()">재연결</button>
+      <div id="userInfo">
+        <div id="userAvatar">👤</div>
+        <span id="userName">-</span>
       </div>
+      <button id="btnLogout" onclick="SmartAuth.signOut()">로그아웃</button>
       <button id="btnClose" onclick="closePage()">✕ 닫기</button>
     </div>
   </div>
   <div id="content">
-    <div class="loading">로딩 중...</div>
+    <div class="loading">로그인 후 로드됩니다</div>
   </div>
 </div>
 
 <script>
-/*
- * ── 메뉴 등록부 ──────────────────────────────────────────────
- * 새 화면 추가 시 아래 MENU 배열에 항목만 추가하면 됨
- * src: './pages/화면명.html'
- * ────────────────────────────────────────────────────────────
- */
 const MENU = [
   {
     group: '인벤토리 관리',
     items: [
       { key: '홈인벤토리등록',   icon: '✏️', title: '홈 인벤토리 등록',   src: './pages/홈인벤토리등록.html' },
-      { key: '홈인벤토리',     icon: '🏠', title: '홈 인벤토리',         src: './pages/홈인벤토리.html' },
+      { key: '홈인벤토리',       icon: '🏠', title: '홈 인벤토리',         src: './pages/홈인벤토리.html' },
       { key: '홈인벤토리구성도', icon: '🕸️', title: '홈 인벤토리 구성도', src: './pages/홈인벤토리구성도.html' },
-      { key: '평면도',          icon: '🗺️', title: '평면도 관리',       src: './pages/평면도.html' },
+      { key: '평면도',            icon: '🗺️', title: '평면도 관리',         src: './pages/평면도.html' },
     ]
   },
-  /* 추가 예시:
-  {
-    group: '기준정보',
-    items: [
-      { key: '영역분류등록',   icon: '🗂️', title: '영역분류등록',   src: './pages/영역분류등록.html' },
-      { key: '영역별비품등록', icon: '📦', title: '영역별 비품등록', src: './pages/영역별비품등록.html' },
-    ]
-  },
-  */
 ];
 
 const DASHBOARD = { key: 'dashboard', icon: '📊', title: '대시보드', src: './pages/대시보드.html' };
-
 let current = null;
 
 async function navigate(key) {
   if (current === key) return;
   current = key;
-
-  const item = key === 'dashboard'
-    ? DASHBOARD
-    : MENU.flatMap(g => g.items).find(i => i.key === key);
+  const item = key === 'dashboard' ? DASHBOARD : MENU.flatMap(g => g.items).find(i => i.key === key);
   if (!item) return;
 
-  // 사이드바 활성화
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const navEl = document.querySelector(`.nav-item[data-key="${key}"]`);
-  if (navEl) navEl.classList.add('active');
-
-  // 상단 타이틀
-  document.getElementById('page-icon').textContent = item.icon;
+  document.querySelector(`.nav-item[data-key="${key}"]`)?.classList.add('active');
+  document.getElementById('page-icon').textContent  = item.icon;
   document.getElementById('page-title').textContent = item.title;
   document.getElementById('btnClose').style.display = key === 'dashboard' ? 'none' : 'block';
 
-  // 페이지 로드
   const contentEl = document.getElementById('content');
   contentEl.innerHTML = '<div class="loading">로딩 중...</div>';
-
   try {
     const html = await fetch(item.src).then(r => r.text());
     contentEl.innerHTML = html;
@@ -303,61 +268,20 @@ async function navigate(key) {
   }
 }
 
-function closePage() {
-  current = null;
-  navigate('dashboard');
-}
+function closePage() { current = null; navigate('dashboard'); }
 
-// 스크립트 순차 실행 (외부 src 먼저 로드 후 인라인 실행)
 async function runScripts(container) {
-  const scripts = Array.from(container.querySelectorAll('script'));
-  for (const old of scripts) {
+  for (const old of Array.from(container.querySelectorAll('script'))) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       Array.from(old.attributes).forEach(a => s.setAttribute(a.name, a.value));
-      if (old.src) {
-        s.onload = resolve;
-        s.onerror = reject;
-      } else {
-        s.textContent = old.textContent;
-      }
+      if (old.src) { s.onload = resolve; s.onerror = reject; }
+      else { s.textContent = old.textContent; }
       old.replaceWith(s);
       if (!old.src) resolve();
     });
   }
 }
-
-// 사이드바 동적 생성
-const sidebar = document.getElementById('sidebar');
-MENU.forEach(group => {
-  const sec = document.createElement('div');
-  sec.className = 'nav-section';
-
-  const label = document.createElement('div');
-  label.className = 'nav-label';
-  label.innerHTML = `<span>${group.group}</span><span class="arrow">▼</span>`;
-
-  const items = document.createElement('div');
-  items.className = 'nav-items';
-
-  label.addEventListener('click', () => {
-    const closed = items.classList.toggle('closed');
-    label.classList.toggle('closed', closed);
-  });
-
-  group.items.forEach(item => {
-    const el = document.createElement('div');
-    el.className = 'nav-item';
-    el.dataset.key = item.key;
-    el.textContent = `${item.icon} ${item.title}`;
-    el.addEventListener('click', () => navigate(item.key));
-    items.appendChild(el);
-  });
-
-  sec.appendChild(label);
-  sec.appendChild(items);
-  sidebar.appendChild(sec);
-});
 
 function toggleSidebar() {
   const sb  = document.getElementById('sidebar');
@@ -366,48 +290,64 @@ function toggleSidebar() {
   tab.textContent = sb.classList.contains('collapsed') ? '▶' : '◀';
 }
 
-/* ── 서버 접속 상태 확인 ── */
-function checkServer() {
-  var dot  = document.getElementById('statusDot');
-  var text = document.getElementById('statusText');
-  var btn  = document.getElementById('btnConnect');
-  if (!dot || !text || !btn) return;
+/* 사이드바 메뉴 생성 */
+const sidebar = document.getElementById('sidebar');
+MENU.forEach(group => {
+  const sec   = document.createElement('div'); sec.className = 'nav-section';
+  const label = document.createElement('div'); label.className = 'nav-label';
+  label.innerHTML = `<span>${group.group}</span><span class="arrow">▼</span>`;
+  const items = document.createElement('div'); items.className = 'nav-items';
+  label.addEventListener('click', () => { const c = items.classList.toggle('closed'); label.classList.toggle('closed', c); });
+  group.items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'nav-item'; el.dataset.key = item.key;
+    el.textContent = `${item.icon} ${item.title}`;
+    el.addEventListener('click', () => navigate(item.key));
+    items.appendChild(el);
+  });
+  sec.appendChild(label); sec.appendChild(items); sidebar.appendChild(sec);
+});
 
-  text.textContent  = '확인 중...';
-  text.style.color  = '#6b7280';
-  dot.className     = '';
-  btn.style.display = 'none';
-
-  var xhr = new XMLHttpRequest();
-  xhr.timeout = 4000;
-
-  xhr.onload = function () {
-    if (xhr.status === 200) {
-      dot.className    = 'ok';
-      text.textContent = '서버 연결됨';
-      text.style.color = '#16a34a';
-    } else {
-      fail();
-    }
-  };
-  xhr.onerror   = fail;
-  xhr.ontimeout = fail;
-
-  function fail() {
-    dot.className    = 'err';
-    text.textContent = '연결 끊김';
-    text.style.color = '#dc2626';
-    btn.style.display = 'inline-block';
+/* 사용자 정보 표시 */
+function showUser(user) {
+  if (!user) return;
+  const name = document.getElementById('userName');
+  const avatar = document.getElementById('userAvatar');
+  name.textContent = user.name || user.email || '사용자';
+  if (user.picture) {
+    avatar.innerHTML = `<img src="${user.picture}" alt="프로필">`;
+  } else {
+    avatar.textContent = (user.name || '?')[0];
   }
-
-  xhr.open('GET', '/api/zones', true);
-  xhr.send();
 }
-window.checkServer = checkServer;
-checkServer();
-setInterval(checkServer, 30000);
 
-navigate('dashboard');
+/* 인증 상태 처리 */
+SmartAuth.init(async ({ signedIn, user }) => {
+  const overlay  = document.getElementById('loginOverlay');
+  const loading  = document.getElementById('dbLoading');
+
+  if (signedIn) {
+    document.getElementById('loginLoading').style.display = 'block';
+    overlay.classList.add('hidden');
+    loading.classList.remove('hidden');
+    showUser(user);
+    try {
+      await SmartDrive.loadDb();
+    } catch (e) {
+      console.error('Drive 로드 오류:', e);
+      alert('Google Drive 데이터를 불러오지 못했습니다.\n다시 로그인해 주세요.');
+      SmartAuth.signOut();
+      return;
+    }
+    loading.classList.add('hidden');
+    navigate('dashboard');
+  } else {
+    overlay.classList.remove('hidden');
+    loading.classList.add('hidden');
+    document.getElementById('loginLoading').style.display = 'none';
+    document.getElementById('content').innerHTML = '<div class="loading">로그인 후 이용할 수 있습니다</div>';
+  }
+});
 </script>
 </body>
 </html>
