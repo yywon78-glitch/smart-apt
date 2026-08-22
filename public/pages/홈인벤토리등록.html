@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.2.2" data-date="2026-08-23">
+<meta name="prog-version" content="6.3.0" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -102,33 +102,6 @@
   .r-drill:hover { background: #eff6ff !important; cursor: pointer; }
   .r-drill:hover td { color: #1d4ed8; }
 
-  /* ── 집 선택 바 ── */
-  .house-bar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 14px; background: #f0f4ff;
-    border-bottom: 1px solid #dbeafe; flex-shrink: 0;
-    overflow-x: auto;
-  }
-  .house-bar-label { font-size: 11px; color: #3b5bdb; font-weight: 700; white-space: nowrap; }
-  .house-chip {
-    display: flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 14px;
-    border: 1px solid #bfdbfe; background: #fff;
-    font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s;
-  }
-  .house-chip.active { background: #1a3a6e; color: #fff; border-color: #1a3a6e; }
-  .house-chip:not(.active):hover { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
-  .btn-edit-h {
-    border: none; background: none; cursor: pointer;
-    font-size: 10px; padding: 0 1px; opacity: .55; color: inherit; line-height: 1;
-  }
-  .btn-edit-h:hover { opacity: 1; }
-  .btn-add-h {
-    padding: 3px 10px; border-radius: 14px;
-    border: 1px dashed #94a3b8; background: none;
-    font-size: 12px; color: #64748b; cursor: pointer; white-space: nowrap;
-  }
-  .btn-add-h:hover { border-color: #3b82f6; color: #2563eb; }
 
   /* 인라인 등록 행 */
   .pr-row { background: #fffbeb !important; }
@@ -174,12 +147,6 @@
 </style>
 
 <div class="sh-layout">
-  <!-- 집 선택 바 -->
-  <div class="house-bar">
-    <span class="house-bar-label">🏘️ 집</span>
-    <div id="houseList"></div>
-    <button class="btn-add-h" id="btnAddHouse">＋ 집 추가</button>
-  </div>
   <div class="nav-bar">
     <div class="breadcrumb" id="breadcrumb">🏠 우리집</div>
     <button class="btn-up" id="btnUp" onclick="goUp()" disabled>← 상위로</button>
@@ -228,13 +195,12 @@
 (async function () {
 
   /* ══ 상태 ══════════════════════════════════════════════════ */
-  let navHistory     = [];
-  let leftParentId   = null;
-  let leftSelId      = null;
-  let currentHouseId = null;   // 현재 선택된 집 item_id
-  let _mo            = {};
-  let newRowState    = null;
-  let editState      = null;
+  let navHistory   = [];
+  let leftParentId = null;   // null=집목록, H.id=구역목록, Z.id=항목목록
+  let leftSelId    = null;
+  let _mo          = {};
+  let newRowState  = null;
+  let editState    = null;
 
   let allBom  = [];
   let nodeMap = {};
@@ -247,7 +213,8 @@
   const getChildrenOf  = id      => allBom.filter(r => r.parent_item_id === id).sort((a,b) => a.sort_order - b.sort_order);
   const getLeftItems   = ()      => getChildrenOf(leftParentId);
   const getRightItems  = ()      => leftSelId ? getChildrenOf(leftSelId) : [];
-  const isAtRoot       = ()      => leftParentId === currentHouseId;
+  const isAtRoot       = ()      => leftParentId === null;
+  const levelOf        = id     => !id ? 'root' : getNode(id)?.node_type === 'H' ? 'house' : 'zone';
 
   /* ══ 데이터 로드 ═══════════════════════════════════════════ */
   async function loadAll() {
@@ -257,40 +224,8 @@
     ]);
     nodeMap = {};
     allBom.forEach(r => { nodeMap[r.item_id] = r; });
-    const houses = getHouses();
-    if (!currentHouseId || !houses.find(h => h.item_id === currentHouseId)) {
-      currentHouseId = houses[0]?.item_id || null;
-    }
-    if (!leftParentId || !getNode(leftParentId)) leftParentId = currentHouseId;
-    renderHouseBar();
     render();
   }
-
-  function renderHouseBar() {
-    const houses = getHouses();
-    document.getElementById('houseList').innerHTML = houses.map(h =>
-      `<div class="house-chip ${h.item_id === currentHouseId ? 'active' : ''}" onclick="selectHouse(${h.item_id})">
-        🏠 ${esc(h.item_name)}
-        <button class="btn-edit-h" onclick="event.stopPropagation();editHouseNode(${h.item_id})" title="편집">✏️</button>
-      </div>`
-    ).join('');
-  }
-
-  window.selectHouse = function(houseId) {
-    if (currentHouseId === houseId && leftParentId === houseId) return;
-    newRowState = null; editState = null;
-    currentHouseId = houseId;
-    leftParentId   = houseId;
-    leftSelId      = null;
-    navHistory     = [];
-    renderHouseBar();
-    render();
-  };
-
-  window.editHouseNode = function(itemId) {
-    const node = getNode(itemId);
-    if (node) openHouseMo(node);
-  };
 
   /* ══ 렌더 ══════════════════════════════════════════════════ */
   function render() {
@@ -305,14 +240,13 @@
     document.getElementById('btnAddR').disabled    = !leftSelId;
 
     /* 좌측 상위 표시 */
-    if (isAtRoot()) {
-      const h = getNode(currentHouseId);
-      document.getElementById('leftParent').innerHTML =
-        `🏠 ${h?.item_name||'우리집'} <span style="font-size:10px;font-weight:400;color:#94a3b8">${h?.item_code||''}</span>`;
+    if (!leftParentId) {
+      document.getElementById('leftParent').textContent = '🏘️ 집 목록';
     } else {
       const pn = getNode(leftParentId);
       const icon = pn?.node_type==='H'?'🏠':pn?.node_type==='Z'?'📁':'📦';
-      document.getElementById('leftParent').textContent = `${icon} ${pn?.item_name||''}`;
+      document.getElementById('leftParent').innerHTML =
+        `${icon} ${esc(pn?.item_name||'')} <span style="font-size:10px;font-weight:400;color:#94a3b8">${esc(pn?.item_code||'')}</span>`;
     }
 
     /* 우측 상위 표시 */
@@ -322,9 +256,7 @@
   }
 
   function renderBreadcrumb() {
-    const h    = getNode(currentHouseId);
-    const root = h ? `🏠 ${h.item_name} (${h.item_code||''})` : '🏘️ 집 목록';
-    const segs = [root, ...navHistory.map(x => x.selName)];
+    const segs = ['🏘️ 집 목록', ...navHistory.map(x => x.selName)];
     const cur  = leftSelId ? getNode(leftSelId)?.item_name : null;
     let html = segs.map((s, i) =>
       `${i>0?'<span class="bc-sep"> › </span>':''}<span class="bc-seg">${s}</span>`
@@ -336,13 +268,16 @@
   /* 좌측 */
   function renderLeft() {
     const items = getLeftItems();
-    document.getElementById('leftTitle').textContent = isAtRoot() ? '구역 목록' : '항목 목록';
+    const lv    = levelOf(leftParentId);
+    const titles = { root: '집 목록', house: '구역 목록', zone: '항목 목록' };
+    document.getElementById('leftTitle').textContent = titles[lv];
     document.getElementById('lHead').innerHTML =
-      `<tr><th style="width:28px">#</th><th>이름</th><th style="width:66px">코드</th><th style="width:36px">하위</th><th style="width:28px"></th></tr>`;
+      `<tr><th style="width:28px">#</th><th>${lv==='root'?'집 이름':'이름'}</th><th style="width:66px">코드</th><th style="width:36px">하위</th><th style="width:28px"></th></tr>`;
+    const empty = lv==='root' ? '＋ 추가 버튼으로 집을 등록하세요' : '＋ 추가 버튼으로 등록하세요';
     document.getElementById('lBody').innerHTML = items.length
       ? items.map((r, i) => {
           const cnt  = getChildrenOf(r.item_id).length;
-          const icon = r.node_type === 'Z' ? '📁' : '📦';
+          const icon = r.node_type==='H' ? '🏠' : r.node_type==='Z' ? '📁' : '📦';
           return `<tr class="${leftSelId===r.item_id?'sel':''}" onclick="selLeft(${r.item_id})">
             <td>${i+1}</td>
             <td><b>${icon} ${esc(r.item_name)}</b></td>
@@ -351,7 +286,7 @@
             <td><button class="btn-g" onclick="event.stopPropagation();editNode(${r.item_id})" title="편집">✏️</button></td>
           </tr>`;
         }).join('')
-      : `<tr><td colspan="5"><div class="empty-td">＋ 추가 버튼으로 등록하세요</div></td></tr>`;
+      : `<tr><td colspan="5"><div class="empty-td">${empty}</div></td></tr>`;
   }
 
   /* 우측 */
@@ -438,7 +373,7 @@
     render();
   };
 
-  window.openAddLeft  = () => openNodeMo(null, leftParentId, currentHouseId);
+  window.openAddLeft  = () => openNodeMo(null, leftParentId);
   window.openAddRight = () => { if (leftSelId) startNewRow(); };
 
 
@@ -518,9 +453,10 @@
   };
 
   /* ══ 노드 추가 (좌측 + 버튼) ══════════════════════════════ */
-  function openNodeMo(node, parentId, houseId) {
-    const parentNode = getNode(parentId);
-    if (!parentNode || parentNode.node_type === 'H') openZoneMo(node, houseId || parentId);
+  function openNodeMo(node, parentId) {
+    const lv = levelOf(parentId);
+    if (lv === 'root')  openHouseMo(node);
+    else if (lv === 'house') openZoneMo(node, parentId);
     else openItemMo(node, { parentItemId: parentId });
   }
 
@@ -627,8 +563,6 @@
   };
 
   /* ══ 집 모달 ═══════════════════════════════════════════════ */
-  document.getElementById('btnAddHouse').addEventListener('click', () => openHouseMo(null));
-
   window.openHouseMo = function openHouseMo(h) {
     _mo = { type:'house', isEdit:!!h, data:h||{} };
     document.getElementById('moBx').innerHTML = `
