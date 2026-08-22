@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.2.0" data-date="2026-08-21">
+<meta name="prog-version" content="5.3.0" data-date="2026-08-21">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -129,10 +129,10 @@
 <script>
 var collapsed    = new Set();
 var hdrCollapsed = new Set();
-let maxDepth = 0;
-let allZones = [];
-let allBomFlat = [];
-let houseData = { house_id: 1, house_code: 'H000001', house_name: '우리집' };
+var maxDepth = 0;
+var allZones = [];
+var allBomFlat = [];
+var houseData = { house_id: 1, house_code: 'H000001', house_name: '우리집' };
 
 /* ── 초기 로드 ── */
 (async function () {
