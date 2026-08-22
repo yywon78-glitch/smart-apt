@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.1.0" data-date="2026-08-21">
+<meta name="prog-version" content="6.2.0" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -102,6 +102,34 @@
   .r-drill:hover { background: #eff6ff !important; cursor: pointer; }
   .r-drill:hover td { color: #1d4ed8; }
 
+  /* ── 집 선택 바 ── */
+  .house-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; background: #f0f4ff;
+    border-bottom: 1px solid #dbeafe; flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .house-bar-label { font-size: 11px; color: #3b5bdb; font-weight: 700; white-space: nowrap; }
+  .house-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 14px;
+    border: 1px solid #bfdbfe; background: #fff;
+    font-size: 12px; cursor: pointer; white-space: nowrap; transition: all .15s;
+  }
+  .house-chip.active { background: #1a3a6e; color: #fff; border-color: #1a3a6e; }
+  .house-chip:not(.active):hover { border-color: #3b82f6; color: #2563eb; background: #eff6ff; }
+  .btn-edit-h {
+    border: none; background: none; cursor: pointer;
+    font-size: 10px; padding: 0 1px; opacity: .55; color: inherit; line-height: 1;
+  }
+  .btn-edit-h:hover { opacity: 1; }
+  .btn-add-h {
+    padding: 3px 10px; border-radius: 14px;
+    border: 1px dashed #94a3b8; background: none;
+    font-size: 12px; color: #64748b; cursor: pointer; white-space: nowrap;
+  }
+  .btn-add-h:hover { border-color: #3b82f6; color: #2563eb; }
+
   /* 인라인 등록 행 */
   .pr-row { background: #fffbeb !important; }
   .pr-row td { padding: 4px 6px; border-bottom: 1px solid #fde68a; }
@@ -146,6 +174,12 @@
 </style>
 
 <div class="sh-layout">
+  <!-- 집 선택 바 -->
+  <div class="house-bar">
+    <span class="house-bar-label">🏘️ 집</span>
+    <div id="houseList"></div>
+    <button class="btn-add-h" onclick="openHouseMo(null)">＋ 집 추가</button>
+  </div>
   <div class="nav-bar">
     <div class="breadcrumb" id="breadcrumb">🏠 우리집</div>
     <button class="btn-up" id="btnUp" onclick="goUp()" disabled>← 상위로</button>
@@ -194,25 +228,26 @@
 (async function () {
 
   /* ══ 상태 ══════════════════════════════════════════════════ */
-  let navHistory   = [];    // [{leftParentId, leftSelId, selName}]
-  let leftParentId = null;  // 좌측 패널 부모 item_id
-  let leftSelId    = null;  // 좌측 선택 item_id
-  let _mo          = {};
-  let newRowState  = null;
-  let editState    = null;
+  let navHistory     = [];
+  let leftParentId   = null;
+  let leftSelId      = null;
+  let currentHouseId = null;   // 현재 선택된 집 item_id
+  let _mo            = {};
+  let newRowState    = null;
+  let editState      = null;
 
-  let allBom  = [];   // /api/bom-tree 전체 (house 포함)
-  let nodeMap = {};   // item_id → node
+  let allBom  = [];
+  let nodeMap = {};
   let cats    = [];
 
   /* ══ 헬퍼 ══════════════════════════════════════════════════ */
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const getHouse       = ()      => allBom.find(r => r.node_type === 'H');
+  const getHouses      = ()      => allBom.filter(r => r.node_type === 'H').sort((a,b) => a.sort_order - b.sort_order);
   const getNode        = id      => nodeMap[id];
   const getChildrenOf  = id      => allBom.filter(r => r.parent_item_id === id).sort((a,b) => a.sort_order - b.sort_order);
   const getLeftItems   = ()      => getChildrenOf(leftParentId);
   const getRightItems  = ()      => leftSelId ? getChildrenOf(leftSelId) : [];
-  const isAtRoot       = ()      => leftParentId === getHouse()?.item_id;
+  const isAtRoot       = ()      => leftParentId === currentHouseId;
 
   /* ══ 데이터 로드 ═══════════════════════════════════════════ */
   async function loadAll() {
@@ -222,9 +257,40 @@
     ]);
     nodeMap = {};
     allBom.forEach(r => { nodeMap[r.item_id] = r; });
-    if (!leftParentId) leftParentId = getHouse()?.item_id;
+    const houses = getHouses();
+    if (!currentHouseId || !houses.find(h => h.item_id === currentHouseId)) {
+      currentHouseId = houses[0]?.item_id || null;
+    }
+    if (!leftParentId || !getNode(leftParentId)) leftParentId = currentHouseId;
+    renderHouseBar();
     render();
   }
+
+  function renderHouseBar() {
+    const houses = getHouses();
+    document.getElementById('houseList').innerHTML = houses.map(h =>
+      `<div class="house-chip ${h.item_id === currentHouseId ? 'active' : ''}" onclick="selectHouse(${h.item_id})">
+        🏠 ${esc(h.item_name)}
+        <button class="btn-edit-h" onclick="event.stopPropagation();editHouseNode(${h.item_id})" title="편집">✏️</button>
+      </div>`
+    ).join('');
+  }
+
+  window.selectHouse = function(houseId) {
+    if (currentHouseId === houseId && leftParentId === houseId) return;
+    newRowState = null; editState = null;
+    currentHouseId = houseId;
+    leftParentId   = houseId;
+    leftSelId      = null;
+    navHistory     = [];
+    renderHouseBar();
+    render();
+  };
+
+  window.editHouseNode = function(itemId) {
+    const node = getNode(itemId);
+    if (node) openHouseMo(node);
+  };
 
   /* ══ 렌더 ══════════════════════════════════════════════════ */
   function render() {
@@ -239,13 +305,14 @@
     document.getElementById('btnAddR').disabled    = !leftSelId;
 
     /* 좌측 상위 표시 */
-    const h = getHouse();
     if (isAtRoot()) {
+      const h = getNode(currentHouseId);
       document.getElementById('leftParent').innerHTML =
         `🏠 ${h?.item_name||'우리집'} <span style="font-size:10px;font-weight:400;color:#94a3b8">${h?.item_code||''}</span>`;
     } else {
       const pn = getNode(leftParentId);
-      document.getElementById('leftParent').textContent = `${pn?.node_type==='Z'?'📁':'📦'} ${pn?.item_name||''}`;
+      const icon = pn?.node_type==='H'?'🏠':pn?.node_type==='Z'?'📁':'📦';
+      document.getElementById('leftParent').textContent = `${icon} ${pn?.item_name||''}`;
     }
 
     /* 우측 상위 표시 */
@@ -255,8 +322,8 @@
   }
 
   function renderBreadcrumb() {
-    const h = getHouse();
-    const root = `🏠 ${h?.item_name||'우리집'} (${h?.item_code||'H000001'})`;
+    const h    = getNode(currentHouseId);
+    const root = h ? `🏠 ${h.item_name} (${h.item_code||''})` : '🏘️ 집 목록';
     const segs = [root, ...navHistory.map(x => x.selName)];
     const cur  = leftSelId ? getNode(leftSelId)?.item_name : null;
     let html = segs.map((s, i) =>
@@ -371,8 +438,9 @@
     render();
   };
 
-  window.openAddLeft  = () => openNodeMo(null, leftParentId);
+  window.openAddLeft  = () => openNodeMo(null, leftParentId, currentHouseId);
   window.openAddRight = () => { if (leftSelId) startNewRow(); };
+
 
   /* ══ 인라인 입력 ═══════════════════════════════════════════ */
   function captureInputs() {
@@ -444,19 +512,21 @@
   window.editNode = function(itemId) {
     const node = getNode(itemId);
     if (!node) return;
-    if (node.node_type==='Z') openZoneMo(node);
+    if (node.node_type==='H') openHouseMo(node);
+    else if (node.node_type==='Z') openZoneMo(node, currentHouseId);
     else openItemMo(node, null);
   };
 
   /* ══ 노드 추가 (좌측 + 버튼) ══════════════════════════════ */
-  function openNodeMo(node, parentId) {
-    if (parentId===getHouse()?.item_id) openZoneMo(node);
+  function openNodeMo(node, parentId, houseId) {
+    const parentNode = getNode(parentId);
+    if (!parentNode || parentNode.node_type === 'H') openZoneMo(node, houseId || parentId);
     else openItemMo(node, { parentItemId: parentId });
   }
 
   /* ══ Zone 모달 ══════════════════════════════════════════════ */
-  function openZoneMo(z) {
-    _mo = { type:'zone', isEdit:!!z, data:z||{} };
+  function openZoneMo(z, targetHouseId) {
+    _mo = { type:'zone', isEdit:!!z, data:z||{}, targetHouseId: targetHouseId || currentHouseId };
     document.getElementById('moBx').innerHTML = `
       <div class="mo-hd"><h4>📁 ${z?'구역 편집':'새 구역 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
       <div class="mo-bd">
@@ -480,7 +550,7 @@
     const { isEdit, data } = _mo;
     const res = await fetch(isEdit?`/api/zones/${data.item_id}`:'/api/zones', {
       method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ zone_name:name, zone_code:code, sort_order:sort })
+      body: JSON.stringify({ zone_name:name, zone_code:code, sort_order:sort, house_id:_mo.targetHouseId })
     });
     if (res.ok) {
       const ret = await res.json();
@@ -553,6 +623,54 @@
   window.deleteMoItem = async function(bomId) {
     if (!confirm('삭제하면 하위 항목도 모두 삭제됩니다. 계속할까요?')) return;
     await fetch(`/api/bom/${bomId}`,{method:'DELETE'});
+    closeMo(); await loadAll();
+  };
+
+  /* ══ 집 모달 ═══════════════════════════════════════════════ */
+  function openHouseMo(h) {
+    _mo = { type:'house', isEdit:!!h, data:h||{} };
+    document.getElementById('moBx').innerHTML = `
+      <div class="mo-hd"><h4>🏠 ${h?'집 편집':'새 집 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
+      <div class="mo-bd">
+        <div class="mf"><label>집 이름 *</label><input id="mhn" value="${esc(h?.item_name||'')}" placeholder="예: 우리집, 옆집, 본가" onkeydown="if(event.key==='Enter')saveMoHouse()"></div>
+        <div class="mf"><label>코드</label><input id="mhc" value="${esc(h?.item_code||'')}" placeholder="자동생성 (비워도 됨)" style="text-transform:uppercase;max-width:160px"></div>
+      </div>
+      <div class="mo-ft">
+        <button class="bs" onclick="saveMoHouse()">💾 저장</button>
+        ${h?`<button class="bd" onclick="deleteMoHouse(${h.item_id})">🗑 삭제</button>`:''}
+        <button class="bc" onclick="closeMo()">취소</button>
+      </div>`;
+    openMo(); setTimeout(()=>document.getElementById('mhn').focus(),80);
+  }
+
+  window.saveMoHouse = async function() {
+    const name = document.getElementById('mhn').value.trim();
+    const code = document.getElementById('mhc').value.trim().toUpperCase();
+    if (!name) { const el=document.getElementById('mhn'); el.classList.add('err'); el.focus(); return; }
+    const { isEdit, data } = _mo;
+    const res = await fetch(isEdit?`/api/houses/${data.item_id}`:'/api/houses', {
+      method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ house_name:name, house_code:code })
+    });
+    if (res.ok) {
+      const ret = await res.json();
+      closeMo();
+      if (!isEdit && ret.item_id) {
+        currentHouseId = ret.item_id;
+        leftParentId   = ret.item_id;
+        leftSelId      = null;
+        navHistory     = [];
+      }
+      await loadAll();
+    } else { alert((await res.json()).error||'저장 실패'); }
+  };
+
+  window.deleteMoHouse = async function(itemId) {
+    if (!confirm('집을 삭제하면 모든 구역과 항목도 삭제됩니다. 계속할까요?')) return;
+    await fetch(`/api/houses/${itemId}`, { method:'DELETE' });
+    if (currentHouseId === itemId) {
+      currentHouseId = null; leftParentId = null; leftSelId = null; navHistory = [];
+    }
     closeMo(); await loadAll();
   };
 
