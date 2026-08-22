@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="prog-version" content="3.0.0" data-date="2026-08-22">
+<meta name="prog-version" content="2.0.0" data-date="2026-08-22">
 <title>Smart Apt — 환경 구성 및 작업 이력</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -128,13 +128,13 @@
   <div class="doc-header">
     <h1>Smart Apt — 환경 구성 및 작업 이력</h1>
     <div class="sub">홈 인벤토리 관리 앱 · GitHub Pages + Google Drive 기반 정적 SPA · 2026-08-22</div>
-    <div class="ver">문서 v3.0.0 · 최종 업데이트 2026-08-22</div>
+    <div class="ver">문서 v2.0.0 · 최종 업데이트 2026-08-22</div>
     <div class="badges">
       <span class="badge badge-white">GitHub Pages 배포 완료</span>
       <span class="badge badge-green">Google OAuth 2.0</span>
       <span class="badge badge-yellow">Google Drive API</span>
       <span class="badge badge-blue">정적 SPA (DB 없음)</span>
-      <span class="badge badge-green">OAuth 앱 프로덕션 게시 완료</span>
+      <span class="badge badge-red">OAuth 출처 등록 필요</span>
     </div>
   </div>
 
@@ -147,8 +147,8 @@
           <div class="mc-title">🌐 서비스 접속</div>
           <div class="mc-row"><span>GitHub Pages URL</span><b>배포 완료 ✅</b></div>
           <div class="mc-row"><span>로컬 개발 서버</span><b>정상 ✅</b></div>
-          <div class="mc-row"><span>Google 로그인</span><b>로그인 테스트 필요 ⚠️</b></div>
-          <div class="mc-row"><span>OAuth 앱 상태</span><b>프로덕션 게시 완료 ✅</b></div>
+          <div class="mc-row"><span>Google 로그인</span><b>OAuth 출처 등록 필요 ⚠️</b></div>
+          <div class="mc-row"><span>Drive 데이터 연동</span><b>로그인 후 확인 필요</b></div>
         </div>
         <div class="mini-card">
           <div class="mc-title">📦 배포 정보</div>
@@ -176,11 +176,6 @@
           <td>Google OAuth 출처</td>
           <td>https://yywon78-glitch.github.io 입력 완료 → 저장 버튼 문제로 미완</td>
           <td><span class="tag tag-warn">미완료</span></td>
-        </tr>
-        <tr>
-          <td>OAuth 앱 게시 상태</td>
-          <td>테스트 → 프로덕션 게시 완료 (누구나 Google 계정으로 로그인 가능)</td>
-          <td><span class="tag tag-done">완료</span></td>
         </tr>
         <tr>
           <td>index.html 버전</td>
@@ -423,12 +418,6 @@
           <td><span class="tag tag-done">설정됨</span></td>
         </tr>
         <tr>
-          <td>OAuth 앱 게시 상태</td>
-          <td>프로덕션 게시 완료 — 누구나 Google 계정으로 로그인 가능.<br>
-          단, 민감한 스코프(drive.file) 사용으로 "확인되지 않은 앱" 경고 화면이 뜰 수 있으나 "계속" 클릭 시 정상 작동.</td>
-          <td><span class="tag tag-done">완료</span></td>
-        </tr>
-        <tr>
           <td>승인된 JS 출처 1</td>
           <td>https://yywon78-glitch.github.io</td>
           <td><span class="tag tag-warn">저장 미완</span></td>
@@ -552,17 +541,7 @@ jobs:
           <div class="cause">원인: 미확인. 브라우저 이슈 또는 폼 유효성 검사 문제로 추정</div>
           <div>증상: 승인된 JavaScript 출처에 https://yywon78-glitch.github.io 입력 후 저장 버튼 클릭 안 됨</div>
           <div class="fix">해결 시도: 다른 URI 필드 클릭 후 재시도, 브라우저 새로고침 후 재입력</div>
-          <div>현재 상태: 미완료 → GitHub Pages에서 Google 로그인 시 origin mismatch 가능</div>
-        </div>
-      </div>
-
-      <div class="trouble-item">
-        <div class="trouble-head">❌ 문제 4 — GitHub Pages 로그인 시 "403 access_denied" (해결)</div>
-        <div class="trouble-body">
-          <div class="cause">원인: OAuth 앱이 "테스트" 모드 — 개발자가 명시적으로 추가한 테스터만 로그인 가능한 상태였음</div>
-          <div>증상: 다른 Google 계정(yywon@paran.com)으로 로그인 시도 → "액세스 차단됨: 앱은 현재 테스트 중이며 개발자가 승인한 테스터만 액세스할 수 있습니다. 403 오류: access_denied"</div>
-          <div class="fix">해결: Google Cloud Console → OAuth 동의 화면 → "앱 게시" 클릭 → 프로덕션으로 전환</div>
-          <div>결과: 누구나 Google 계정으로 로그인 가능. 로그인 시 "확인되지 않은 앱" 경고 뜰 수 있으나 "계속" 클릭 시 정상 작동.</div>
+          <div>현재 상태: 미완료 → GitHub Pages에서 Google 로그인 불가</div>
         </div>
       </div>
 
@@ -640,21 +619,6 @@ jobs:
             <div class="desc">docs/setup_guide.html 최초 작성(v1.0.0) 후 전체 이력 반영하여 v2.0.0으로 업데이트.</div>
           </div>
         </li>
-        <li>
-          <div class="step-no">10</div>
-          <div class="step-txt">
-            <div class="title">OAuth 앱 "테스트 → 프로덕션" 게시 <span class="tag tag-done">완료</span></div>
-            <div class="desc">다른 Google 계정 로그인 시 403 access_denied 발생. OAuth 동의 화면이 "테스트" 모드여서 개발자가 등록한 사람만 접속 가능했던 것이 원인. Google Cloud Console → OAuth 동의 화면 → "앱 게시"로 프로덕션 전환 완료.</div>
-            <div class="sub"><b>결과:</b> 누구나 본인 Google 계정으로 로그인 가능. 각자 Drive에 독립 데이터 저장.</div>
-          </div>
-        </li>
-        <li>
-          <div class="step-no">11</div>
-          <div class="step-txt">
-            <div class="title">환경 구성 문서 v3.0.0 업데이트 <span class="tag tag-done">완료</span></div>
-            <div class="desc">OAuth 게시 완료 내용, 트러블슈팅 문제 4 추가, 남은 작업 갱신.</div>
-          </div>
-        </li>
       </ul>
     </div>
   </div>
@@ -709,9 +673,9 @@ jobs:
         <tr>
           <td>2</td>
           <td><b>GitHub Pages 로그인 동작 확인</b><br>
-          <small>https://yywon78-glitch.github.io/smart-apt/ 에서 Google 로그인 → Drive 연결 → 구역 추가 테스트.</small></td>
+          <small>OAuth 저장 후 https://yywon78-glitch.github.io/smart-apt/ 에서 Google 로그인 테스트.</small></td>
           <td>🔴 긴급</td>
-          <td><span class="tag tag-ing">진행 중</span></td>
+          <td><span class="tag tag-todo">대기</span></td>
         </tr>
         <tr>
           <td>3</td>
