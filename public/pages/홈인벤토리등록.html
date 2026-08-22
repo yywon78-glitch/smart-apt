@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.2.1" data-date="2026-08-23">
+<meta name="prog-version" content="6.2.2" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -178,7 +178,7 @@
   <div class="house-bar">
     <span class="house-bar-label">🏘️ 집</span>
     <div id="houseList"></div>
-    <button class="btn-add-h" onclick="openHouseMo(null)">＋ 집 추가</button>
+    <button class="btn-add-h" id="btnAddHouse">＋ 집 추가</button>
   </div>
   <div class="nav-bar">
     <div class="breadcrumb" id="breadcrumb">🏠 우리집</div>
@@ -627,6 +627,8 @@
   };
 
   /* ══ 집 모달 ═══════════════════════════════════════════════ */
+  document.getElementById('btnAddHouse').addEventListener('click', () => openHouseMo(null));
+
   window.openHouseMo = function openHouseMo(h) {
     _mo = { type:'house', isEdit:!!h, data:h||{} };
     document.getElementById('moBx').innerHTML = `
