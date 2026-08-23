@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.8.0" data-date="2026-08-23">
+<meta name="prog-version" content="6.7.0" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -445,7 +445,6 @@
     if (res.ok) {
       const ret = await res.json();
       newHouseRowState = { name:'' };
-      const phEl = document.getElementById('ph-n'); if (phEl) phEl.value = '';
       await loadAll();
       if (ret.item_id) currentHouseId = ret.item_id;
       setTimeout(() => { newHouseRowState = { name:'' }; renderHouses(); setTimeout(() => document.getElementById('ph-n')?.focus(), 30); }, 60);
@@ -479,7 +478,6 @@
       if (ret.item_id) leftSelId = ret.item_id;
     }
     newZoneRowState = { name:'' };
-    const pzEl = document.getElementById('pz-n'); if (pzEl) pzEl.value = '';
     await loadAll();
     setTimeout(() => { newZoneRowState = { name:'' }; renderZones(); setTimeout(() => document.getElementById('pz-n')?.focus(), 30); }, 60);
   };
