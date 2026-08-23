@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="prog-version" content="2.0.0" data-date="2026-08-22">
+<meta name="prog-version" content="2.1.0" data-date="2026-08-23">
 <title>홈 자산관리</title>
 
 <!-- Google Identity Services -->
@@ -260,7 +260,7 @@ async function navigate(key) {
   const contentEl = document.getElementById('content');
   contentEl.innerHTML = '<div class="loading">로딩 중...</div>';
   try {
-    const html = await fetch(item.src).then(r => r.text());
+    const html = await fetch(item.src, { cache: 'no-cache' }).then(r => r.text());
     contentEl.innerHTML = html;
     await runScripts(contentEl);
   } catch (e) {
