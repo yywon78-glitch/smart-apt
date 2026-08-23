@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.5.0" data-date="2026-08-23">
+<meta name="prog-version" content="5.6.0" data-date="2026-08-23">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -10,15 +10,7 @@
   .btn-primary { background:#1a3a6e; color:#fff; } .btn-primary:hover { background:#24508f; }
   .btn-gray    { background:#e5e7eb; color:#374151; } .btn-gray:hover { background:#d1d5db; }
 
-  .lv-btns { display:flex; gap:4px; margin-left:auto; align-items:center; }
-  .lv-btn {
-    padding:4px 10px; border:1px solid #e2e8f0; border-radius:5px;
-    font-size:11px; cursor:pointer; background:#fff; color:#374151; font-family:inherit;
-  }
-  .lv-btn:hover  { background:#f0f4ff; border-color:#3b82f6; color:#1a3a6e; }
-  .lv-btn.active { background:#1a3a6e; color:#fff; border-color:#1a3a6e; }
-
-  .tree-wrap { background:#fff; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); overflow:auto; }
+.tree-wrap { background:#fff; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); overflow:auto; }
   .tree-info {
     padding:8px 14px; font-size:12px; color:#666; border-bottom:1px solid #eee;
     position:sticky; top:0; background:#fff; z-index:10;
@@ -107,15 +99,6 @@
   <button class="btn-sm btn-primary" onclick="loadTree()">조회</button>
   <button class="btn-sm btn-gray"    onclick="expandAll()">전체 펼치기</button>
   <button class="btn-sm btn-gray"    onclick="collapseAll()">전체 접기</button>
-  <div class="lv-btns">
-    <span style="font-size:11px;color:#94a3b8">레벨:</span>
-    <button class="lv-btn" onclick="collapseToLevel(-2)">최상위만</button>
-    <button class="lv-btn" onclick="collapseToLevel(-1)">구역만</button>
-    <button class="lv-btn" onclick="collapseToLevel(0)">1단계</button>
-    <button class="lv-btn" onclick="collapseToLevel(1)">2단계</button>
-    <button class="lv-btn" onclick="collapseToLevel(2)">3단계</button>
-    <button class="lv-btn" onclick="expandAll()">전체</button>
-  </div>
 </div>
 
 <div class="tree-wrap">
