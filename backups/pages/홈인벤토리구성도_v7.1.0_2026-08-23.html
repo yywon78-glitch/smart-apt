@@ -1,4 +1,4 @@
-<meta name="prog-version" content="7.1.1" data-date="2026-08-23">
+<meta name="prog-version" content="7.1.0" data-date="2026-08-23">
 <style>
   #chartWrap {
     width:100%; height:calc(100vh - 160px);
@@ -234,23 +234,13 @@
       .attr('font-weight', d => d.depth<=1?700:400)
       .attr('fill', d => d.depth===0?'#fff': d.depth===1?nodeColor(d):'#374151');
 
-    /* 왼클릭 — 접기/펼치기 (1레벨 자식 유지) */
+    /* 왼클릭 — 접기/펼치기 */
     nodeSel.on('click', (event, d) => {
       if (d.depth===0) return;
       event.stopPropagation();
       hideCtx();
-      if (d.children) {
-        const anyGrandVisible = d.children.some(c => c.children && c.children.length > 0);
-        if (anyGrandVisible) {
-          // 손자부터 접기, 직계 자식은 유지
-          d.children.forEach(c => { if (c.children) { c._children=c.children; c.children=null; } });
-        } else {
-          // 자식만 보이는 상태 → 전부 접기
-          d._children=d.children; d.children=null;
-        }
-      } else if (d._children) {
-        d.children=d._children; d._children=null;
-      }
+      if (d.children)       { d._children=d.children;  d.children=null; }
+      else if (d._children) { d.children=d._children;  d._children=null; }
       redrawFn();
     });
 
