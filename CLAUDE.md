@@ -21,6 +21,22 @@
 
 ---
 
+## ⚠️ 수정 후 필수 액션 (예외 없음)
+
+**코드를 수정했으면 반드시 아래를 완료해야 작업이 끝난 것이다.**
+
+```
+4. git add + commit + push  ← 묻지 않고 바로 실행
+5. 라이브 사이트 확인 URL: https://yywon78-glitch.github.io/smart-apt/
+```
+
+- 수정하고 push 안 하면 라이브에 반영되지 않는다
+- "올려드릴까요?" 같은 질문은 하지 않는다. 그냥 한다
+- GitHub Actions 배포는 push 후 1~2분 소요
+- 배포 확인: https://github.com/yywon78-glitch/smart-apt/actions
+
+---
+
 ## 백업 대상 및 위치
 
 | 대상 | 백업 위치 |
