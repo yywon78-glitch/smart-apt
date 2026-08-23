@@ -1,6 +1,6 @@
 /*
  * drive.js — Google Drive API v3 래퍼
- * @version 1.0.0
+ * @version 1.1.0
  *
  * 개인 Google Drive의 SmartApt/ 폴더에 모든 데이터 저장
  *   SmartApt/db.json      — 구역·항목·BOM·도면 메타
@@ -62,11 +62,17 @@ window.SmartDrive = {
     const blob = new Blob([JSON.stringify(this._db)], { type: 'application/json' });
 
     if (this._dbFileId) {
-      await fetch(`${_UPLOAD}/files/${this._dbFileId}?uploadType=media`, {
+      const res = await fetch(`${_UPLOAD}/files/${this._dbFileId}?uploadType=media`, {
         method: 'PATCH',
         headers: { ...this._hdr(), 'Content-Type': 'application/json' },
         body: blob
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg  = body?.error?.message || `Drive 저장 실패 (${res.status})`;
+        if (res.status === 401) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.\n' + msg);
+        throw new Error(msg);
+      }
     } else {
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify({ name: _DB, parents: [fid] })], { type: 'application/json' }));
@@ -74,6 +80,10 @@ window.SmartDrive = {
       const cr = await fetch(`${_UPLOAD}/files?uploadType=multipart&fields=id`, {
         method: 'POST', headers: this._hdr(), body: form
       });
+      if (!cr.ok) {
+        const body = await cr.json().catch(() => ({}));
+        throw new Error(body?.error?.message || `Drive 파일 생성 실패 (${cr.status})`);
+      }
       this._dbFileId = (await cr.json()).id;
     }
   },

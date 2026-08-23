@@ -1,5 +1,7 @@
 node_modules/
 public/uploads/
+public/pages/versions/
+public/js/versions/
 .env
 *.bat
 *.lnk

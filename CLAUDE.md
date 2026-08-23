@@ -39,12 +39,12 @@
 | index.html | v2.0.0 |
 | 대시보드.html | v1.1.0 |
 | 홈인벤토리.html | v5.1.0 |
-| 홈인벤토리등록.html | v6.1.0 |
+| 홈인벤토리등록.html | v6.4.1 |
 | 홈인벤토리구성도.html | v7.0.0 |
 | 평면도.html | v1.4.0 |
 | api-local.js | v1.0.0 |
 | google-auth.js | v1.0.0 |
-| drive.js | v1.0.0 |
+| drive.js | v1.1.0 |
 | docs/db_to_local_plan.html | v3.0.0 |
 | docs/revenue_model.html | v1.0.0 |
 

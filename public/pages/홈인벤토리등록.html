@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.4.0" data-date="2026-08-23">
+<meta name="prog-version" content="6.4.1" data-date="2026-08-23">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -342,10 +342,10 @@
   window.startNewRow = function() {
     captureInputs(); editState=null;
     newRowState = { name:'', qty:1, price:'', req:false };
-    renderRight();
+    renderItems();
     setTimeout(() => document.getElementById('pr-n')?.focus(), 30);
   };
-  window.cancelNewRow = () => { newRowState=null; renderRight(); };
+  window.cancelNewRow = () => { newRowState=null; renderItems(); };
 
   window.saveNewRow = async function() {
     captureInputs();
@@ -370,10 +370,10 @@
     const row = allBom.find(r => r.bom_id===bomId);
     if (!row) return;
     editState = { bomId, itemId:row.item_id, name:row.item_name, qty:row.qty, price:row.std_price||'', req:row.is_required==='Y' };
-    renderRight();
+    renderItems();
     setTimeout(() => document.getElementById('ed-n')?.focus(), 30);
   };
-  window.cancelEdit = () => { editState=null; renderRight(); };
+  window.cancelEdit = () => { editState=null; renderItems(); };
 
   window.saveEdit = async function() {
     captureInputs();
