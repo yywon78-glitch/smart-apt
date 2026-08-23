@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.6.0" data-date="2026-08-23">
+<meta name="prog-version" content="5.7.0" data-date="2026-08-23">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -94,15 +94,12 @@
 </style>
 
 <div class="tree-filter">
-  <select id="selZone"><option value="">구역 전체</option></select>
-  <label><input type="checkbox" id="chkRequired"> 필수만 보기</label>
   <button class="btn-sm btn-primary" onclick="loadTree()">조회</button>
   <button class="btn-sm btn-gray"    onclick="expandAll()">전체 펼치기</button>
   <button class="btn-sm btn-gray"    onclick="collapseAll()">전체 접기</button>
 </div>
 
 <div class="tree-wrap">
-  <div class="tree-info" id="treeInfo">조회 중...</div>
   <table id="bomTree">
     <thead id="tHead"></thead>
     <tbody id="tBody"><tr><td class="loading">조회 중...</td></tr></tbody>
@@ -119,17 +116,6 @@ var allHouses = [];
 
 /* ── 초기 로드 ── */
 (async function () {
-  allBomFlat = await fetch('/api/bom-tree').then(r => r.json());
-  allHouses  = allBomFlat.filter(r => r.node_type === 'H');
-  allZones   = allBomFlat.filter(r => r.node_type === 'Z');
-  const sel  = document.getElementById('selZone');
-  allZones.forEach(z => {
-    const house = allHouses.find(h => h.item_id === z.parent_item_id);
-    const o = document.createElement('option');
-    o.value = z.item_id;
-    o.textContent = allHouses.length > 1 ? `[${house?.item_name||'?'}] ${z.item_name}` : z.item_name;
-    sel.appendChild(o);
-  });
   loadTree();
 })();
 
@@ -478,27 +464,18 @@ function hlBtn(active) {
 
 /* ── 데이터 로드 ── */
 async function loadTree() {
-  const zone     = document.getElementById('selZone')?.value || '';
-  const required = document.getElementById('chkRequired')?.checked ? 'Y' : '';
-  const params   = new URLSearchParams();
-  if (zone)     params.set('zone', zone);
-  if (required) params.set('required', required);
-
   document.getElementById('tBody').innerHTML = '<tr><td class="loading">조회 중...</td></tr>';
 
-  const flat = await fetch('/api/bom-tree?' + params).then(r => r.json());
-  const filterZoneId = parseInt(zone) || null;
-  const zones = buildTree(flat, filterZoneId);
+  const flat  = await fetch('/api/bom-tree').then(r => r.json());
+  const zones = buildTree(flat, null);
 
-  const tops = allHouses.map(h => ({ id: h.item_id, name: `🏠 ${h.item_name}`, code: h.item_code }));
+  const tops  = flat.filter(r => r.node_type === 'H')
+                    .sort((a,b) => +a.sort_order - +b.sort_order)
+                    .map(h => ({ id: h.item_id, name: `🏠 ${h.item_name}`, code: h.item_code }));
   zones.forEach(z => { z.topId = z.parent_item_id; });
 
   collapsed.clear(); hdrCollapsed.clear();
   renderTree(tops, zones);
-  const itemCount = flat.filter(r => r.node_type==='I').length;
-  document.getElementById('treeInfo').textContent = `총 ${itemCount}개 항목`;
-
-  /* 초기 표시: 1단계까지 펼쳐서 기본 자료 노출 */
   collapseToLevel(0);
 }
 
