@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.4.0" data-date="2026-08-21">
+<meta name="prog-version" content="5.5.0" data-date="2026-08-23">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -165,6 +165,7 @@ function buildTree(flat, filterZoneId) {
     .map(z => ({
       zone_id: z.item_id, zone_name: z.item_name, zone_code: z.item_code,
       zone_sort: +z.sort_order,
+      parent_item_id: z.parent_item_id,
       roots: buildItems(z.item_id)
     }));
   return zones;
