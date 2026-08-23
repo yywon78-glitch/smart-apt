@@ -1,6 +1,6 @@
 /*
  * api-local.js — fetch 인터셉터
- * @version 1.1.0
+ * @version 1.2.0
  *
  * window.fetch를 오버라이드해서 /api/* 요청을
  * Google Drive 로컬 처리로 대체한다.
@@ -64,15 +64,16 @@
       if (mtd === 'GET' && match('/api/bom-tree', path)) {
         const reqOnly = qs.get('required') === 'Y';
         const bom = reqOnly ? db.bom.filter(b => b.is_required === 'Y') : db.bom;
-        const house = db.items.find(i => i.node_type === 'H');
+        const houses = db.items.filter(i => i.node_type === 'H');
         const rows = bom.map(b => {
           const i = db.items.find(i => i.item_id === b.child_item_id);
           return i ? { ...i, ...b, item_sort: i.sort_order } : null;
         }).filter(Boolean);
-        const result = house
-          ? [{ bom_id: null, parent_item_id: null, ...house, qty: 1, is_required: 'N', sort_order: 0, level_no: -1 }, ...rows]
-          : rows;
-        return ok(result);
+        const houseRows = houses.map(h => ({
+          bom_id: null, parent_item_id: null, ...h,
+          qty: 1, is_required: 'N', sort_order: h.sort_order || 0, level_no: -1
+        }));
+        return ok([...houseRows, ...rows]);
       }
 
       if (mtd === 'GET' && match('/api/zones', path)) {
