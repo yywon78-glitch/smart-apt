@@ -1,4 +1,4 @@
-<meta name="prog-version" content="5.7.0" data-date="2026-08-23">
+<meta name="prog-version" content="5.8.0" data-date="2026-08-23">
 <style>
   .tree-filter {
     background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
@@ -476,7 +476,7 @@ async function loadTree() {
 
   collapsed.clear(); hdrCollapsed.clear();
   renderTree(tops, zones);
-  collapseToLevel(0);
+  expandAll();
 }
 
 /* ── 컬럼 드래그 리사이즈 ── */
