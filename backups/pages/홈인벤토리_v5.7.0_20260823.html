@@ -1,0 +1,512 @@
+<meta name="prog-version" content="5.7.0" data-date="2026-08-23">
+<style>
+  .tree-filter {
+    background:#fff; padding:10px 14px; display:flex; gap:10px; align-items:center;
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); flex-wrap:wrap; margin-bottom:12px;
+  }
+  .tree-filter select { padding:6px 10px; border:1px solid #cdd5e0; border-radius:6px; font-size:13px; font-family:inherit; }
+  .tree-filter label  { display:flex; align-items:center; gap:5px; font-size:13px; cursor:pointer; }
+  .btn-sm { padding:6px 14px; border:none; border-radius:6px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:#1a3a6e; color:#fff; } .btn-primary:hover { background:#24508f; }
+  .btn-gray    { background:#e5e7eb; color:#374151; } .btn-gray:hover { background:#d1d5db; }
+
+.tree-wrap { background:#fff; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); overflow:auto; }
+  .tree-info {
+    padding:8px 14px; font-size:12px; color:#666; border-bottom:1px solid #eee;
+    position:sticky; top:0; background:#fff; z-index:10;
+  }
+
+  #bomTree { width:100%; border-collapse:collapse; font-size:13px; }
+
+  #bomTree thead th {
+    background:#6b8fc4; color:#fff; padding:8px 12px; text-align:left;
+    font-size:12px; font-weight:600; white-space:nowrap;
+    position:sticky; top:37px; z-index:9;
+    border-right:1px solid rgba(255,255,255,0.25);
+  }
+  #bomTree thead th:last-child { border-right:none; }
+  #bomTree thead th.dbl-hd {
+    cursor:pointer; user-select:none;
+  }
+  #bomTree thead th.dbl-hd:hover { background:#4a6fa5; }
+  #bomTree thead th.hd-closed { background:#a0b8d8 !important; color:#1a3a6e !important; }
+
+  #bomTree td { padding:0; border-bottom:1px solid #f0f4f8; vertical-align:middle; }
+
+  /* 최상위 행 */
+  .row-top td { background:rgba(26,58,110,0.68); }
+  .row-top .cell-top {
+    display:flex; align-items:center; gap:6px;
+    padding:8px 12px; font-weight:700; color:#fff;
+    cursor:pointer; font-size:13px;
+    white-space:nowrap; overflow:hidden;
+  }
+  .row-top:hover td { background:rgba(26,58,110,0.80); }
+
+  /* 구역 행 */
+  .row-zone td { background:rgba(26,58,110,0.07); }
+  .row-zone .cell-zone {
+    display:flex; align-items:center; gap:6px;
+    padding:7px 12px; font-weight:700; color:#1a3a6e;
+    cursor:pointer; font-size:13px;
+    white-space:nowrap; overflow:hidden;
+  }
+  .row-zone:hover td { background:rgba(26,58,110,0.13); }
+
+  /* 항목 행 */
+  .row-item td { background:#fff; overflow:hidden; }
+  .row-item:hover td { background:#f8faff; }
+
+  .cell-item {
+    display:flex; align-items:center; gap:5px;
+    padding:6px 12px; color:#374151;
+    white-space:nowrap; overflow:hidden;
+  }
+  .cell-item.has-ch { cursor:pointer; color:#1a3a6e; font-weight:500; }
+  .cell-item.has-ch:hover { color:#2563eb; }
+
+  .ic {
+    font-size:10px; color:#6b7280; transition:transform .15s;
+    user-select:none; display:inline-block; width:14px; flex-shrink:0;
+  }
+  .ic.wh  { color:#fff; }
+  .ic.open { }
+  .ic.close { transform:rotate(-90deg); color:#9ca3af; }
+  .ic.wh.close { color:rgba(255,255,255,.4); }
+
+  .code-badge { font-size:10px; color:#94a3b8; font-family:Consolas,monospace; flex-shrink:0; }
+  .cnt-badge  { font-size:10px; color:#fff; background:#3b82f6; border-radius:3px; padding:0 4px; flex-shrink:0; }
+  .cnt-badge.wh { background:rgba(255,255,255,.3); }
+
+  .loading { text-align:center; padding:30px; color:#999; }
+
+  /* 컬럼 리사이저 */
+  #bomTree thead th { position: relative; }
+  .col-resizer {
+    position: absolute; top: 0; right: 0;
+    width: 6px; height: 100%;
+    cursor: col-resize; z-index: 10;
+    background: transparent;
+  }
+  .col-resizer:hover, .col-resizer.dragging {
+    background: rgba(255,255,255,.45);
+  }
+</style>
+
+<div class="tree-filter">
+  <button class="btn-sm btn-primary" onclick="loadTree()">조회</button>
+  <button class="btn-sm btn-gray"    onclick="expandAll()">전체 펼치기</button>
+  <button class="btn-sm btn-gray"    onclick="collapseAll()">전체 접기</button>
+</div>
+
+<div class="tree-wrap">
+  <table id="bomTree">
+    <thead id="tHead"></thead>
+    <tbody id="tBody"><tr><td class="loading">조회 중...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+var collapsed    = new Set();
+var hdrCollapsed = new Set();
+var maxDepth = 0;
+var allZones = [];
+var allBomFlat = [];
+var allHouses = [];
+
+/* ── 초기 로드 ── */
+(async function () {
+  loadTree();
+})();
+
+/* ── 트리 변환 (통합 BOM) ── */
+function buildTree(flat, filterZoneId) {
+  const nodeMap = {};
+  flat.forEach(r => { nodeMap[r.item_id] = r; });
+  function buildItems(parentId) {
+    return flat.filter(r => r.parent_item_id === parentId && r.node_type === 'I')
+      .sort((a,b) => +a.sort_order - +b.sort_order)
+      .map(r => ({ ...r, children: buildItems(r.item_id) }));
+  }
+  const zones = flat.filter(r => r.node_type === 'Z')
+    .filter(r => !filterZoneId || r.item_id === filterZoneId)
+    .sort((a,b) => +a.sort_order - +b.sort_order)
+    .map(z => ({
+      zone_id: z.item_id, zone_name: z.item_name, zone_code: z.item_code,
+      zone_sort: +z.sort_order,
+      parent_item_id: z.parent_item_id,
+      roots: buildItems(z.item_id)
+    }));
+  return zones;
+}
+function countDesc(item) {
+  return item.children.reduce((s,c) => s + 1 + countDesc(c), 0);
+}
+function calcMaxDepth(items, d) {
+  let m = d;
+  items.forEach(i => { const x = calcMaxDepth(i.children, d+1); if (x>m) m=x; });
+  return m;
+}
+
+/* ── 렌더 ── */
+function renderTree(tops, zones) {
+  maxDepth = 0;
+  zones.forEach(z => { const d = calcMaxDepth(z.roots, 0); if (d>maxDepth) maxDepth=d; });
+
+  const itemCols = maxDepth + 1;
+
+  /* 헤더: 최상위 | 구역 | 1단계 | 2단계 | ... */
+  document.getElementById('tHead').innerHTML = `<tr>
+    <th class="dbl-hd" style="width:110px" title="클릭: 하위 구역 접기/펼치기" onclick="toggleLevel(-2)">홈구분</th>
+    <th class="dbl-hd" style="width:120px" title="클릭: 구역 하위 접기/펼치기" onclick="toggleLevel(-1)">구역</th>
+    ${Array.from({length:itemCols}, (_,i) =>
+      `<th class="dbl-hd" style="min-width:150px" title="클릭: 하위 접기/펼치기" onclick="toggleLevel(${i})">${i+1}단계</th>`
+    ).join('')}
+  </tr>`;
+
+  const rows = [];
+
+  tops.forEach(top => {
+    const tId   = `t${top.id}`;
+    const tDesc = zones.filter(z => z.topId === top.id).length; // 직접 하위(구역) 수만
+
+    rows.push(`<tr class="row-top" data-level="-2">
+      <td><div class="cell-top" onclick="toggleNode('${tId}')">
+        <span class="ic wh open" id="ic-${tId}">▼</span>
+        ${top.name}
+        ${top.code ? `<span style="font-size:10px;font-weight:400;opacity:.7;margin-left:6px">${top.code}</span>` : ''}
+        ${tDesc > 0 ? `<span class="cnt-badge wh">${tDesc}</span>` : ''}
+      </div></td>
+      <td></td>
+      ${Array.from({length:itemCols}, () => '<td></td>').join('')}
+    </tr>`);
+
+    zones.filter(z => z.topId === top.id).forEach(zone => {
+      const zId   = `z${zone.zone_id}`;
+      const zDesc = zone.roots.length; // 직접 하위 항목 수만
+
+      rows.push(`<tr class="row-zone" data-ancestors="${tId}" data-level="-1">
+        <td></td>
+        <td><div class="cell-zone" onclick="toggleNode('${zId}')">
+          <span class="ic open" id="ic-${zId}">▼</span>
+          ${zone.zone_name}
+          <span style="font-size:10px;color:#94a3b8;margin-left:4px">${zone.zone_code||''}</span>
+          ${zDesc > 0 ? `<span class="cnt-badge">${zDesc}</span>` : ''}
+        </div></td>
+        ${Array.from({length:itemCols}, () => '<td></td>').join('')}
+      </tr>`);
+
+      renderItems(zone.roots, [tId, zId], rows, 0, itemCols);
+    });
+  });
+
+  document.getElementById('tBody').innerHTML =
+    rows.join('') || `<tr><td colspan="${itemCols+2}" class="loading">결과 없음</td></tr>`;
+
+  _attachResizers();
+}
+
+function renderItems(items, ancestors, rows, depth, cols) {
+  items.forEach(item => {
+    const iId = `i${item.bom_id}`;
+    const hasChildren = item.children.length > 0;
+    const desc = item.children.length; // 직접 하위 수만
+    const anc  = ancestors.join(',');
+
+    const cells = Array.from({length:cols}, (_,ci) => {
+      if (ci !== depth) return '<td></td>';
+      return `<td><div class="cell-item ${hasChildren ? 'has-ch' : ''}"
+          ${hasChildren ? `onclick="toggleNode('${iId}')"` : ''}>
+        ${hasChildren
+          ? `<span class="ic open" id="ic-${iId}">▼</span>`
+          : `<span style="width:14px;display:inline-block"></span>`}
+        ${item.item_name}
+        ${hasChildren ? `<span class="cnt-badge">${desc}</span>` : ''}
+        <span class="code-badge">${item.item_code||''}</span>
+      </div></td>`;
+    }).join('');
+
+    rows.push(`<tr class="row-item" data-ancestors="${anc}" data-level="${depth}">
+      <td></td><td></td>${cells}
+    </tr>`);
+
+    if (hasChildren) renderItems(item.children, [...ancestors, iId], rows, depth+1, cols);
+  });
+}
+
+/* ── 레벨 일괄 토글 (컬럼 헤더 클릭)
+   접기: 해당 레벨 노드의 하위 전체 숨김, 자신은 유지
+   펼치기: 직접 하위(1단계 아래)만 표시, 그 아래는 접힌 상태 유지 ── */
+function toggleLevel(depth) {
+  const sel = depth === -2 ? '.row-top'
+            : depth === -1 ? '.row-zone'
+            : `.row-item[data-level="${depth}"]`;
+
+  const rows = [...document.querySelectorAll(sel)];
+  if (!rows.length) return;
+
+  const anyOpen = rows.some(r => {
+    const ic = r.querySelector('.ic');
+    return ic && !collapsed.has(ic.id.replace('ic-', ''));
+  });
+
+  rows.forEach(row => {
+    const ic = row.querySelector('.ic');
+    if (!ic || !ic.id) return;
+    const nodeId = ic.id.replace('ic-', '');
+
+    if (anyOpen && !collapsed.has(nodeId)) {
+      /* ── 접기: 하위 전체 숨김 ── */
+      collapsed.add(nodeId);
+      document.querySelectorAll('[data-ancestors]').forEach(r => {
+        if (r.dataset.ancestors.split(',').includes(nodeId))
+          r.style.display = 'none';
+      });
+      ic.className = ic.className.replace(/open|close/g, '').trim() + ' close';
+
+    } else if (!anyOpen && collapsed.has(nodeId)) {
+      /* ── 펼치기: 직접 하위만 표시, 그 아래는 접힌 채로 ── */
+      collapsed.delete(nodeId);
+
+      document.querySelectorAll('[data-ancestors]').forEach(r => {
+        const anc = r.dataset.ancestors.split(',');
+        if (!anc.includes(nodeId)) return;
+        if (anc.some(a => a !== nodeId && collapsed.has(a))) return;
+        // 직접 하위: ancestors 배열에서 nodeId 가 마지막 원소인 행만 표시
+        if (anc[anc.length - 1] !== nodeId) return;
+
+        r.style.display = '';
+
+        // 이 직접 하위 노드는 즉시 접힌 상태로 고정
+        const cIc = r.querySelector('.ic');
+        if (cIc && cIc.id) {
+          const cId = cIc.id.replace('ic-', '');
+          collapsed.add(cId);
+          document.querySelectorAll('[data-ancestors]').forEach(cr => {
+            if (cr.dataset.ancestors.split(',').includes(cId))
+              cr.style.display = 'none';
+          });
+          cIc.className = cIc.className.replace(/open|close/g, '').trim() + ' close';
+        }
+      });
+
+      ic.className = ic.className.replace(/open|close/g, '').trim() + ' open';
+    }
+  });
+
+  _updateHdrStyles();
+}
+
+/* ── 개별 토글 ── */
+function toggleNode(nodeId) {
+  if (collapsed.has(nodeId)) {
+    collapsed.delete(nodeId);
+    // 이 노드에 속하는 행 표시 (조상 중 collapsed 없는 것만)
+    document.querySelectorAll('[data-ancestors]').forEach(row => {
+      const anc = row.dataset.ancestors.split(',');
+      if (anc.includes(nodeId) && !anc.some(a => collapsed.has(a)))
+        row.style.display = '';
+    });
+  } else {
+    collapsed.add(nodeId);
+    document.querySelectorAll('[data-ancestors]').forEach(row => {
+      if (row.dataset.ancestors.split(',').includes(nodeId))
+        row.style.display = 'none';
+    });
+  }
+  const ic = document.getElementById(`ic-${nodeId}`);
+  if (ic) ic.className = ic.className.replace(/open|close/g, '').trim()
+    + ` ${collapsed.has(nodeId) ? 'close' : 'open'}`;
+}
+
+/* ── 헤더 더블클릭 토글 ── */
+function toggleHdr(depth) {
+  if (hdrCollapsed.has(depth)) {
+    hdrCollapsed.delete(depth);
+    _showLevel(depth);
+  } else {
+    hdrCollapsed.add(depth);
+    _hideLevel(depth);
+  }
+  _updateHdrStyles();
+}
+
+function _hideLevel(depth) {
+  const sel = depth === -2 ? '.row-top' :
+              depth === -1 ? '.row-zone' :
+              `.row-item[data-level="${depth}"]`;
+
+  document.querySelectorAll(sel).forEach(row => {
+    // depth <= -1 이면 행 자체도 숨김
+    if (depth <= -1) row.style.display = 'none';
+
+    // 이 행의 토글 아이콘이 있으면 하위도 접기
+    const ic = row.querySelector('.ic');
+    if (!ic) return;
+    const nodeId = ic.id.replace('ic-', '');
+    collapsed.add(nodeId);
+    document.querySelectorAll('[data-ancestors]').forEach(r => {
+      if (r.dataset.ancestors.split(',').includes(nodeId))
+        r.style.display = 'none';
+    });
+    ic.className = ic.className.replace(/open|close/g,'').trim() + ' close';
+  });
+}
+
+function _showLevel(depth) {
+  const sel = depth === -2 ? '.row-top' :
+              depth === -1 ? '.row-zone' :
+              `.row-item[data-level="${depth}"]`;
+
+  document.querySelectorAll(sel).forEach(row => {
+    // 조상 중 아직 collapsed 된 게 있으면 스킵
+    const anc = (row.dataset.ancestors || '').split(',').filter(Boolean);
+    if (anc.some(a => collapsed.has(a))) return;
+
+    if (depth <= -1) row.style.display = '';
+
+    const ic = row.querySelector('.ic');
+    if (!ic) return;
+    const nodeId = ic.id.replace('ic-', '');
+    collapsed.delete(nodeId);
+    document.querySelectorAll('[data-ancestors]').forEach(r => {
+      const a = r.dataset.ancestors.split(',');
+      if (a.includes(nodeId) && !a.some(x => collapsed.has(x)))
+        r.style.display = '';
+    });
+    ic.className = ic.className.replace(/open|close/g,'').trim() + ' open';
+  });
+}
+
+function _updateHdrStyles() {
+  document.querySelectorAll('#tHead th.dbl-hd').forEach(th => {
+    const attr = th.getAttribute('onclick') || '';
+    const m = attr.match(/toggleLevel\((-?\d+)\)/);
+    if (!m) return;
+    const depth = parseInt(m[1]);
+    const sel = depth === -2 ? '.row-top'
+              : depth === -1 ? '.row-zone'
+              : `.row-item[data-level="${depth}"]`;
+    const allClosed = [...document.querySelectorAll(sel)].every(r => {
+      const ic = r.querySelector('.ic');
+      return !ic || collapsed.has(ic.id.replace('ic-', ''));
+    });
+    th.classList.toggle('hd-closed', allClosed);
+  });
+}
+
+/* ── 전체/레벨 접기 ── */
+function expandAll() {
+  collapsed.clear(); hdrCollapsed.clear();
+  document.querySelectorAll('[data-ancestors]').forEach(r => r.style.display = '');
+  document.querySelectorAll('.row-zone,.row-top').forEach(r => r.style.display = '');
+  document.querySelectorAll('.ic').forEach(ic =>
+    ic.className = ic.className.replace(/open|close/g,'').trim() + ' open');
+  _updateHdrStyles(); hlBtn(999);
+}
+
+function collapseAll() {
+  hdrCollapsed.clear();
+  // 최상위 접기
+  document.querySelectorAll('.row-top').forEach(r => {
+    const ic = r.querySelector('.ic');
+    if (ic) { collapsed.add(ic.id.replace('ic-','')); ic.className = ic.className.replace(/open|close/g,'').trim()+' close'; }
+  });
+  document.querySelectorAll('[data-ancestors]').forEach(r => r.style.display = 'none');
+  _updateHdrStyles(); hlBtn(-99);
+}
+
+function collapseToLevel(keepLevel) {
+  /* keepLevel: -2=최상위만, -1=구역까지, 0=1단계까지, ... */
+  collapsed.clear(); hdrCollapsed.clear();
+
+  // 모두 표시 후 초기화
+  document.querySelectorAll('[data-ancestors],.row-zone,.row-top').forEach(r => r.style.display = '');
+  document.querySelectorAll('.ic').forEach(ic =>
+    ic.className = ic.className.replace(/open|close/g,'').trim() + ' open');
+
+  // keepLevel 초과 레벨 숨기기
+  if (keepLevel < -1) {
+    // 구역 이하 전부 숨기기
+    document.querySelectorAll('.row-zone,[data-ancestors]').forEach(r => {
+      if (parseInt(r.dataset.level ?? '0') >= -1) r.style.display = 'none';
+    });
+    // 최상위 아이콘 닫힘 표시
+    document.querySelectorAll('.row-top .ic').forEach(ic => {
+      collapsed.add(ic.id.replace('ic-','')); ic.className = ic.className.replace(/open|close/g,'').trim()+' close';
+    });
+  } else {
+    // 항목 행 중 depth > keepLevel 숨기기
+    document.querySelectorAll('.row-item[data-level]').forEach(r => {
+      if (parseInt(r.dataset.level) > keepLevel) r.style.display = 'none';
+    });
+    // keepLevel 단계 항목 아이콘 닫힘
+    document.querySelectorAll(`.row-item[data-level="${keepLevel}"] .ic`).forEach(ic => {
+      if (ic) { collapsed.add(ic.id.replace('ic-','')); ic.className = ic.className.replace(/open|close/g,'').trim()+' close'; }
+    });
+    // 구역만(-1)일 때 항목 전부 숨기고 구역 아이콘 닫힘
+    if (keepLevel === -1) {
+      document.querySelectorAll('.row-item').forEach(r => r.style.display = 'none');
+      document.querySelectorAll('.row-zone .ic').forEach(ic => {
+        collapsed.add(ic.id.replace('ic-','')); ic.className = ic.className.replace(/open|close/g,'').trim()+' close';
+      });
+    }
+  }
+
+  _updateHdrStyles(); hlBtn(keepLevel);
+}
+
+function hlBtn(active) {
+  const labels = [-2, -1, 0, 1, 2, 999];
+  document.querySelectorAll('.lv-btn').forEach((btn,i) =>
+    btn.classList.toggle('active', labels[i] === active));
+}
+
+/* ── 데이터 로드 ── */
+async function loadTree() {
+  document.getElementById('tBody').innerHTML = '<tr><td class="loading">조회 중...</td></tr>';
+
+  const flat  = await fetch('/api/bom-tree').then(r => r.json());
+  const zones = buildTree(flat, null);
+
+  const tops  = flat.filter(r => r.node_type === 'H')
+                    .sort((a,b) => +a.sort_order - +b.sort_order)
+                    .map(h => ({ id: h.item_id, name: `🏠 ${h.item_name}`, code: h.item_code }));
+  zones.forEach(z => { z.topId = z.parent_item_id; });
+
+  collapsed.clear(); hdrCollapsed.clear();
+  renderTree(tops, zones);
+  collapseToLevel(0);
+}
+
+/* ── 컬럼 드래그 리사이즈 ── */
+(function () {
+  let dragging = null; // { th, startX, startW, resizer }
+
+  function _attachResizers() {
+    document.querySelectorAll('#tHead th').forEach(th => {
+      if (th.querySelector('.col-resizer')) return;
+      const r = document.createElement('div');
+      r.className = 'col-resizer';
+      th.appendChild(r);
+      r.addEventListener('mousedown', e => {
+        dragging = { th, startX: e.pageX, startW: th.offsetWidth, resizer: r };
+        r.classList.add('dragging');
+        e.preventDefault(); e.stopPropagation();
+      });
+    });
+  }
+  window._attachResizers = _attachResizers;
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(60, dragging.startW + (e.pageX - dragging.startX));
+    dragging.th.style.width    = w + 'px';
+    dragging.th.style.minWidth = w + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) { dragging.resizer.classList.remove('dragging'); dragging = null; }
+  });
+})();
+</script>

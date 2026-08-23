@@ -6,8 +6,8 @@
 
 ```
 1. 백업
-   cp public/pages/파일명.html  public/pages/versions/파일명_v버전_날짜.html
-   cp public/js/파일명.js       public/js/versions/파일명_v버전_날짜.js
+   cp public/pages/파일명.html  backups/pages/파일명_v버전_날짜.html
+   cp public/js/파일명.js       backups/js/파일명_v버전_날짜.js
 
 2. 버전 증가
    파일 내 <meta name="prog-version" content="X.X.X"> 올리기
@@ -25,10 +25,10 @@
 
 | 대상 | 백업 위치 |
 |------|-----------|
-| `public/pages/*.html` | `public/pages/versions/파일명_v버전_날짜.html` |
-| `public/js/*.js` | `public/js/versions/파일명_v버전_날짜.js` |
-| `public/index.html` | `public/pages/versions/index_v버전_날짜.html` |
-| `docs/*.html` | `docs/versions/파일명_v버전_날짜.html` |
+| `public/pages/*.html` | `backups/pages/파일명_v버전_날짜.html` |
+| `public/js/*.js` | `backups/js/파일명_v버전_날짜.js` |
+| `public/index.html` | `backups/pages/index_v버전_날짜.html` |
+| `docs/*.html` | `backups/docs/파일명_v버전_날짜.html` |
 
 ---
 
@@ -36,9 +36,9 @@
 
 | 파일 | 버전 |
 |------|------|
-| index.html | v2.0.0 |
+| index.html | v2.1.0 |
 | 대시보드.html | v1.1.0 |
-| 홈인벤토리.html | v5.1.0 |
+| 홈인벤토리.html | v5.8.0 |
 | 홈인벤토리등록.html | v6.7.0 |
 | 홈인벤토리구성도.html | v7.0.0 |
 | 평면도.html | v1.4.0 |
@@ -57,7 +57,7 @@
 - **인증**: `public/js/google-auth.js` (Google OAuth 2.0)
 - **Drive**: `public/js/drive.js` (개인 Google Drive 읽기/쓰기)
 - **API**: `public/js/api-local.js` (fetch 인터셉터 — /api/* → Drive)
-- **백업**: `public/pages/versions/`, `public/js/versions/`
+- **백업**: `backups/pages/`, `backups/js/` (public/ 밖 — 배포 대상 제외)
 
 ## 서비스 목표
 

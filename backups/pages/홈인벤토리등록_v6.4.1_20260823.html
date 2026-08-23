@@ -1,0 +1,558 @@
+<meta name="prog-version" content="6.4.1" data-date="2026-08-23">
+<style>
+  .sh-layout {
+    display: flex; flex-direction: column;
+    margin: -20px -24px;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+
+  /* ── 두 그리드 ── */
+  .sh-body { display: flex; flex: 1; overflow: hidden; }
+
+  .gp { display: flex; flex-direction: column; overflow: hidden; }
+  .gp-house { width: 22%; border-right: 2px solid #e2e8f0; }
+  .gp-left  { width: 35%; border-right: 2px solid #e2e8f0; }
+  .gp-right { flex: 1; }
+
+  .gp-hd {
+    display: flex; flex-direction: column;
+    background: #f0f4ff; border-bottom: 1px solid #dbeafe; flex-shrink: 0;
+  }
+  .gp-hd-ctx {
+    padding: 4px 12px 0;
+    font-size: 10px; color: #3b5bdb; font-weight: 600;
+  }
+  .gp-hd-bot {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px 5px;
+  }
+  .gp-hd .gh-title { font-size: 12px; font-weight: 700; color: #1a3a6e; }
+  .btn-add {
+    font-size: 11px; padding: 4px 11px;
+    background: #1a3a6e; color: #fff;
+    border: none; border-radius: 5px; cursor: pointer;
+  }
+  .btn-add:hover { background: #24508f; }
+  .btn-add:disabled { background: #94a3b8; cursor: not-allowed; }
+
+  .gp-wrap { flex: 1; overflow-y: auto; }
+
+  /* ── 공통 테이블 ── */
+  .gt { width: 100%; border-collapse: collapse; }
+  .gt th {
+    position: sticky; top: 0; z-index: 1;
+    background: #1a3a6e; color: #fff;
+    padding: 7px 8px; text-align: left;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .gt td {
+    padding: 6px 8px; border-bottom: 1px solid #f0f4f8;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gt tbody tr { cursor: pointer; transition: background .1s; }
+  .gt tbody tr:hover { background: #f0f4ff; }
+  .gt tbody tr.sel { background: #dbeafe !important; }
+  .gt tbody tr.sel td { color: #1d4ed8; }
+
+  .btn-g {
+    border: none; background: none; cursor: pointer;
+    padding: 2px 5px; border-radius: 3px; font-size: 11px; line-height: 1;
+  }
+  .btn-g:hover { background: #e0e7ff; }
+
+  .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+  .badge-y { background: #dcfce7; color: #166534; }
+  .badge-n { background: #f3f4f6; color: #9ca3af; }
+
+  .empty-td { text-align: center; padding: 40px 16px; color: #94a3b8; font-size: 12px; line-height: 1.8; }
+  .r-drill:hover { background: #eff6ff !important; cursor: pointer; }
+  .r-drill:hover td { color: #1d4ed8; }
+
+  /* 인라인 등록 행 */
+  .pr-row { background: #fffbeb !important; }
+  .pr-row td { padding: 4px 6px; border-bottom: 1px solid #fde68a; }
+  .pr-row input[type=text], .pr-row input[type=number] {
+    width: 100%; padding: 4px 6px; border: 1px solid #fcd34d;
+    border-radius: 4px; font-size: 12px; font-family: inherit; background: #fff;
+  }
+  .pr-row input:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.15); }
+  .pr-row input.err { border-color: #ef4444 !important; }
+  .btn-rm-pr { border: none; background: none; color: #dc2626; cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .btn-rm-pr:hover { color: #b91c1c; }
+
+  /* ── 모달 ── */
+  .mo-ov {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.35); z-index: 2000;
+    align-items: center; justify-content: center;
+  }
+  .mo-ov.open { display: flex; }
+  .mo-bx { background: #fff; border-radius: 10px; width: 460px; max-height: 88vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.22); }
+  .mo-hd { padding: 13px 20px; background: #1a3a6e; color: #fff; border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: space-between; }
+  .mo-hd h4 { font-size: 14px; font-weight: 700; margin: 0; }
+  .mo-hd .x { background: none; border: none; color: rgba(255,255,255,.7); font-size: 20px; cursor: pointer; line-height: 1; padding: 0; }
+  .mo-hd .x:hover { color: #fff; }
+  .mo-bd { padding: 18px 22px; }
+  .mf { display: flex; gap: 10px; margin-bottom: 11px; align-items: flex-start; }
+  .mf label { width: 62px; font-size: 11px; color: #64748b; flex-shrink: 0; padding-top: 8px; font-weight: 600; }
+  .mf input, .mf select, .mf textarea { flex: 1; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .mf input:focus, .mf select:focus, .mf textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+  .mf textarea { min-height: 52px; resize: vertical; }
+  .r2 { display: flex; gap: 6px; flex: 1; }
+  .r2 input, .r2 select { flex: 1; }
+  .ck-lbl { display: flex; align-items: center; gap: 6px; font-size: 12px; padding-top: 7px; cursor: pointer; }
+  .ck-lbl input { width: 14px; height: 14px; cursor: pointer; }
+  .mo-ft { padding: 10px 22px 16px; display: flex; gap: 8px; border-top: 1px solid #f1f5f9; }
+  .bs { padding: 8px 20px; background: #1a3a6e; color: #fff; border: none; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: 600; font-family: inherit; }
+  .bs:hover { background: #24508f; }
+  .bd { padding: 8px 14px; color: #dc2626; border: 1px solid #fca5a5; background: #fff; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .bd:hover { background: #fee2e2; }
+  .bc { padding: 8px 14px; color: #64748b; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .bc:hover { background: #f1f5f9; }
+</style>
+
+<div class="sh-layout">
+  <div class="sh-body">
+    <!-- 집 목록 -->
+    <div class="gp gp-house">
+      <div class="gp-hd">
+        <div class="gp-hd-bot">
+          <span class="gh-title">집 목록</span>
+          <button class="btn-add" id="btnAddHouse">＋</button>
+        </div>
+      </div>
+      <div class="gp-wrap">
+        <table class="gt"><thead id="hHead"></thead><tbody id="hBody"></tbody></table>
+      </div>
+    </div>
+    <!-- 구역 목록 -->
+    <div class="gp gp-left">
+      <div class="gp-hd">
+        <div class="gp-hd-ctx" id="leftCtx"></div>
+        <div class="gp-hd-bot">
+          <span class="gh-title">구역 목록</span>
+          <button class="btn-add" id="btnAddZone" onclick="openAddLeft()" disabled>＋ 추가</button>
+        </div>
+      </div>
+      <div class="gp-wrap">
+        <table class="gt"><thead id="lHead"></thead><tbody id="lBody"></tbody></table>
+      </div>
+    </div>
+    <!-- 항목 목록 -->
+    <div class="gp gp-right">
+      <div class="gp-hd">
+        <div class="gp-hd-ctx" id="rightCtx"></div>
+        <div class="gp-hd-bot">
+          <span class="gh-title" id="rightTitle">항목 목록</span>
+          <button class="btn-add" id="btnAddR" onclick="openAddRight()" disabled>＋ 추가</button>
+        </div>
+      </div>
+      <div class="gp-wrap">
+        <table class="gt"><thead id="rHead"></thead><tbody id="rBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mo-ov" id="moOv" onclick="if(event.target===this)closeMo()">
+  <div class="mo-bx" id="moBx"></div>
+</div>
+
+<script>
+(async function () {
+
+  /* ══ 상태 ══════════════════════════════════════════════════ */
+  let currentHouseId = null;  // 선택된 집
+  let leftSelId      = null;  // 선택된 구역
+  let _mo            = {};
+  let newRowState    = null;
+  let editState      = null;
+
+  let allBom  = [];
+  let nodeMap = {};
+  let cats    = [];
+
+  /* ══ 헬퍼 ══════════════════════════════════════════════════ */
+  const esc          = s  => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const getHouses    = () => allBom.filter(r => r.node_type === 'H').sort((a,b) => a.sort_order - b.sort_order);
+  const getNode      = id => nodeMap[id];
+  const getChildrenOf= id => allBom.filter(r => r.parent_item_id === id).sort((a,b) => a.sort_order - b.sort_order);
+  const getZones     = () => currentHouseId ? getChildrenOf(currentHouseId) : [];
+  const getItems     = () => leftSelId ? getChildrenOf(leftSelId) : [];
+
+  /* ══ 데이터 로드 ═══════════════════════════════════════════ */
+  async function loadAll() {
+    [allBom, cats] = await Promise.all([
+      fetch('/api/bom-tree').then(r => r.json()),
+      fetch('/api/categories').then(r => r.json()).catch(() => [])
+    ]);
+    nodeMap = {};
+    allBom.forEach(r => { nodeMap[r.item_id] = r; });
+    const houses = getHouses();
+    if (!currentHouseId || !houses.find(h => h.item_id === currentHouseId))
+      currentHouseId = houses[0]?.item_id || null;
+    render();
+  }
+
+  /* ══ 렌더 ══════════════════════════════════════════════════ */
+  function render() {
+    renderHouses();
+    renderZones();
+    renderItems();
+
+    document.getElementById('btnAddZone').disabled = !currentHouseId;
+    document.getElementById('btnAddR').disabled    = !leftSelId;
+
+  }
+
+  /* 집 패널 */
+  function renderHouses() {
+    const houses = getHouses();
+    document.getElementById('hHead').innerHTML =
+      `<tr><th style="width:28px">#</th><th>집 이름</th><th style="width:28px"></th></tr>`;
+    document.getElementById('hBody').innerHTML = houses.length
+      ? houses.map((h, i) => `
+          <tr class="${currentHouseId===h.item_id?'sel':''}" onclick="selHouse(${h.item_id})">
+            <td>${i+1}</td>
+            <td><b>🏠 ${esc(h.item_name)}</b><br><span style="font-size:10px;color:#94a3b8">${esc(h.item_code||'')}</span></td>
+            <td><button class="btn-g" onclick="event.stopPropagation();editNode(${h.item_id})" title="편집">✏️</button></td>
+          </tr>`)
+        .join('')
+      : `<tr><td colspan="3"><div class="empty-td">＋</div></td></tr>`;
+  }
+
+  /* 구역 패널 */
+  function renderZones() {
+    const h     = getNode(currentHouseId);
+    const zones = getZones();
+    document.getElementById('leftCtx').textContent = h ? `🏠 ${h.item_name}` : '';
+    document.getElementById('lHead').innerHTML =
+      `<tr><th style="width:28px">#</th><th>구역명</th><th style="width:60px">코드</th><th style="width:36px">항목</th><th style="width:28px"></th></tr>`;
+    document.getElementById('lBody').innerHTML = zones.length
+      ? zones.map((r, i) => {
+          const cnt = getChildrenOf(r.item_id).length;
+          return `<tr class="${leftSelId===r.item_id?'sel':''}" onclick="selLeft(${r.item_id})">
+            <td>${i+1}</td>
+            <td><b>📁 ${esc(r.item_name)}</b></td>
+            <td style="font-size:10px;color:#64748b">${esc(r.item_code||'')}</td>
+            <td style="text-align:center;color:#2563eb;font-weight:700">${cnt||''}</td>
+            <td><button class="btn-g" onclick="event.stopPropagation();editNode(${r.item_id})" title="편집">✏️</button></td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="5"><div class="empty-td">${currentHouseId ? '＋ 구역을 추가하세요' : '← 집을 선택하세요'}</div></td></tr>`;
+  }
+
+  /* 항목 패널 */
+  function renderItems() {
+    const zone  = getNode(leftSelId);
+    const items = getItems();
+    document.getElementById('rightCtx').textContent  = zone ? `📁 ${zone.item_name}` : '';
+    document.getElementById('rightTitle').textContent = zone ? '항목 목록' : '항목 목록';
+    document.getElementById('rHead').innerHTML =
+      `<tr><th style="width:28px">#</th><th>항목명</th><th style="width:60px">코드</th><th style="width:40px">수량</th><th style="width:66px">단가</th><th style="width:30px">필</th><th style="width:32px"></th></tr>`;
+
+    if (!zone) {
+      document.getElementById('rBody').innerHTML =
+        `<tr><td colspan="7"><div class="empty-td">← 구역을 선택하세요</div></td></tr>`;
+      return;
+    }
+
+    captureInputs();
+
+    const dataHtml = items.map((r, i) => {
+      if (editState && editState.bomId === r.bom_id) {
+
+        return `<tr class="pr-row">
+          <td style="color:#3b82f6;font-weight:700;text-align:center">✎</td>
+          <td><input type="text" id="ed-n" value="${esc(editState.name)}" placeholder="항목명 *"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();saveEdit()} else if(event.key==='Escape'){cancelEdit()}"></td>
+          <td style="font-size:10px;color:#94a3b8;text-align:center">${esc(r.item_code||'')}</td>
+          <td><input type="number" id="ed-q" value="${editState.qty}" min="1" style="width:48px"></td>
+          <td><input type="number" id="ed-p" value="${editState.price}" placeholder="0" style="width:80px"></td>
+          <td style="text-align:center"><input type="checkbox" id="ed-r" ${editState.req?'checked':''}></td>
+          <td style="text-align:center;white-space:nowrap">
+            <button class="btn-g" onclick="saveEdit()" title="저장">✔</button>
+            <button class="btn-rm-pr" onclick="cancelEdit()" title="취소">✕</button>
+          </td></tr>`;
+      }
+      const cnt    = getChildrenOf(r.item_id).length;
+      const cntBdg = cnt > 0 ? `<span style="font-size:10px;color:#2563eb;font-weight:700;margin-left:4px">[${cnt}]</span>` : '';
+      return `<tr class="r-drill" ondblclick="drillDown(${r.item_id})" title="더블클릭→하위이동">
+        <td>${i+1}</td>
+        <td style="max-width:160px"><b>${esc(r.item_name)}</b>${cntBdg}
+          <span style="float:right;color:#94a3b8;font-size:12px">›</span></td>
+        <td style="font-size:10px;color:#94a3b8">${esc(r.item_code||'')}</td>
+        <td style="text-align:right">${r.qty}</td>
+        <td style="text-align:right;font-size:11px">${r.std_price ? Number(r.std_price).toLocaleString() : '-'}</td>
+        <td style="text-align:center"><span class="badge ${r.is_required==='Y'?'badge-y':'badge-n'}">${r.is_required==='Y'?'필':'선'}</span></td>
+        <td><button class="btn-g" onclick="event.stopPropagation();startEdit(${r.bom_id})" title="수정">✏️</button></td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="7"><div class="empty-td" style="padding:20px">등록된 항목이 없습니다<br>＋ 추가 버튼으로 등록하세요</div></td></tr>`;
+
+    const newHtml = newRowState ? `
+      <tr class="pr-row">
+        <td style="color:#f59e0b;font-weight:700;text-align:center">+</td>
+        <td><input type="text" id="pr-n" value="${esc(newRowState.name||'')}"
+              placeholder="항목명 * (Enter=저장 후 다음)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();saveNewRow()} else if(event.key==='Escape'){cancelNewRow()}"></td>
+        <td style="font-size:10px;color:#94a3b8;text-align:center">자동</td>
+        <td><input type="number" id="pr-q" value="${newRowState.qty||1}" min="1" style="width:48px"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();saveNewRow()}"></td>
+        <td><input type="number" id="pr-p" value="${newRowState.price||''}" placeholder="0" style="width:80px"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();saveNewRow()}"></td>
+        <td style="text-align:center"><input type="checkbox" id="pr-r" ${newRowState.req?'checked':''}></td>
+        <td style="text-align:center">
+          <button class="btn-g" onclick="saveNewRow()" title="저장">✔</button>
+          <button class="btn-rm-pr" onclick="cancelNewRow()" title="취소">✕</button>
+        </td></tr>` : '';
+
+    document.getElementById('rBody').innerHTML = dataHtml + newHtml;
+  }
+
+  /* ══ 선택 ══════════════════════════════════════════════════ */
+  window.selHouse = function(id) {
+    newRowState=null; editState=null;
+    currentHouseId = id; leftSelId = null;
+    render();
+  };
+  window.selLeft = id => { newRowState=null; editState=null; leftSelId=id; render(); };
+
+  window.openAddLeft  = () => { if (currentHouseId) openZoneMo(null); };
+  window.openAddRight = () => { if (leftSelId) startNewRow(); };
+
+  /* ══ 인라인 입력 ═══════════════════════════════════════════ */
+  function captureInputs() {
+    if (newRowState) {
+      newRowState.name  = document.getElementById('pr-n')?.value  ?? newRowState.name;
+      newRowState.qty   = document.getElementById('pr-q')?.value  ?? newRowState.qty;
+      newRowState.price = document.getElementById('pr-p')?.value  ?? newRowState.price;
+      newRowState.req   = document.getElementById('pr-r')?.checked ?? newRowState.req;
+    }
+    if (editState) {
+      editState.name  = document.getElementById('ed-n')?.value  ?? editState.name;
+      editState.qty   = document.getElementById('ed-q')?.value  ?? editState.qty;
+      editState.price = document.getElementById('ed-p')?.value  ?? editState.price;
+      editState.req   = document.getElementById('ed-r')?.checked ?? editState.req;
+    }
+  }
+
+  window.startNewRow = function() {
+    captureInputs(); editState=null;
+    newRowState = { name:'', qty:1, price:'', req:false };
+    renderItems();
+    setTimeout(() => document.getElementById('pr-n')?.focus(), 30);
+  };
+  window.cancelNewRow = () => { newRowState=null; renderItems(); };
+
+  window.saveNewRow = async function() {
+    captureInputs();
+    const name = (newRowState.name||'').trim();
+    if (!name) { const el=document.getElementById('pr-n'); if(el){el.classList.add('err');el.focus();} return; }
+    await fetch('/api/items', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        parent_item_id: leftSelId, item_name: name,
+        qty: parseFloat(newRowState.qty)||1, std_price: parseInt(newRowState.price)||0,
+        is_required: newRowState.req?'Y':'N', unit:'EA'
+      })
+    });
+    newRowState = { name:'', qty:1, price:'', req:false };
+    const el = document.getElementById('pr-n'); if (el) el.value='';
+    await loadAll();
+    setTimeout(() => document.getElementById('pr-n')?.focus(), 60);
+  };
+
+  window.startEdit = function(bomId) {
+    captureInputs(); newRowState=null;
+    const row = allBom.find(r => r.bom_id===bomId);
+    if (!row) return;
+    editState = { bomId, itemId:row.item_id, name:row.item_name, qty:row.qty, price:row.std_price||'', req:row.is_required==='Y' };
+    renderItems();
+    setTimeout(() => document.getElementById('ed-n')?.focus(), 30);
+  };
+  window.cancelEdit = () => { editState=null; renderItems(); };
+
+  window.saveEdit = async function() {
+    captureInputs();
+    const name = (editState.name||'').trim();
+    if (!name) { const el=document.getElementById('ed-n'); if(el){el.classList.add('err');el.focus();} return; }
+    await fetch(`/api/items/${editState.itemId}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        item_name:name, unit:'EA', std_price:parseInt(editState.price)||0,
+        qty:parseFloat(editState.qty)||1, is_required:editState.req?'Y':'N', bom_id:editState.bomId
+      })
+    });
+    editState=null; await loadAll();
+  };
+
+  /* ══ 노드 편집 (좌측 패널) ════════════════════════════════ */
+  window.editNode = function(itemId) {
+    const node = getNode(itemId);
+    if (!node) return;
+    if (node.node_type==='H') openHouseMo(node);
+    else if (node.node_type==='Z') openZoneMo(node);
+    else openItemMo(node, null);
+  };
+
+  /* ══ 노드 추가 (좌측 + 버튼) ══════════════════════════════ */
+  function openNodeMo(node, parentId) {
+    if (getNode(parentId)?.node_type === 'H') openZoneMo(node);
+    else openItemMo(node, { parentItemId: parentId });
+  }
+
+  /* ══ Zone 모달 ══════════════════════════════════════════════ */
+  function openZoneMo(z) {
+    _mo = { type:'zone', isEdit:!!z, data:z||{} };
+    document.getElementById('moBx').innerHTML = `
+      <div class="mo-hd"><h4>📁 ${z?'구역 편집':'새 구역 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
+      <div class="mo-bd">
+        <div class="mf"><label>구역명 *</label><input id="mzn" value="${esc(z?.item_name||'')}" placeholder="예: 거실, 주방, 침실1" onkeydown="if(event.key==='Enter')saveMoZone()"></div>
+        <div class="mf"><label>구역코드</label><input id="mzc" value="${esc(z?.item_code||'')}" placeholder="자동생성 (비워도 됨)" style="text-transform:uppercase;max-width:160px" onkeydown="if(event.key==='Enter')saveMoZone()"></div>
+        <div class="mf"><label>정렬순서</label><input id="mzs" type="number" value="${z?.sort_order??0}" style="max-width:70px"></div>
+      </div>
+      <div class="mo-ft">
+        <button class="bs" onclick="saveMoZone()">💾 저장</button>
+        ${z?`<button class="bd" onclick="deleteMoZone(${z.bom_id})">🗑 삭제</button>`:''}
+        <button class="bc" onclick="closeMo()">취소</button>
+      </div>`;
+    openMo(); setTimeout(()=>document.getElementById('mzn').focus(),80);
+  }
+
+  window.saveMoZone = async function() {
+    const name = document.getElementById('mzn').value.trim();
+    const code = document.getElementById('mzc').value.trim().toUpperCase();
+    const sort = parseInt(document.getElementById('mzs').value)||0;
+    if (!name) { const el=document.getElementById('mzn'); el.classList.add('err'); el.focus(); return; }
+    const { isEdit, data } = _mo;
+    const res = await fetch(isEdit?`/api/zones/${data.item_id}`:'/api/zones', {
+      method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ zone_name:name, zone_code:code, sort_order:sort, house_id:currentHouseId })
+    });
+    if (res.ok) {
+      const ret = await res.json();
+      closeMo(); await loadAll();
+      if (!isEdit && ret.item_id) leftSelId = ret.item_id;
+    } else { alert((await res.json()).error||'저장 실패'); }
+  };
+
+  window.deleteMoZone = async function(bomId) {
+    if (!confirm('구역을 삭제하면 하위 항목도 모두 삭제됩니다. 계속할까요?')) return;
+    await fetch(`/api/bom/${bomId}`, { method:'DELETE' });
+    if (leftSelId===_mo.data?.item_id) leftSelId=null;
+    closeMo(); await loadAll();
+  };
+
+  /* ══ Item 모달 ══════════════════════════════════════════════ */
+  function openItemMo(row, ctx) {
+    _mo = { type:'item', isEdit:!!row, row:row||{}, ctx };
+    const catOpts = cats.map(c =>
+      `<option value="${c.cat_id}" ${row?.cat_id===c.cat_id?'selected':''}>${c.cat_name}</option>`
+    ).join('');
+    document.getElementById('moBx').innerHTML = `
+      <div class="mo-hd"><h4>📦 ${row?'항목 편집':'항목 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
+      <div class="mo-bd">
+        <div class="mf"><label>항목명 *</label><input id="min" value="${esc(row?.item_name||'')}" placeholder="예: 냉장고, TV, 소파"></div>
+        <div class="mf"><label>코드</label><input id="mic" value="${esc(row?.item_code||'')}" placeholder="자동생성 (비워도 됨)"></div>
+        <div class="mf"><label>수량·단위</label>
+          <div class="r2">
+            <input id="miq" type="number" value="${row?.qty||1}" min="0.01" step="0.01" style="max-width:70px">
+            <select id="miu">${['EA','개','대','세트','m','m²','L','kg','본','쌍'].map(u=>`<option ${(row?.unit||'EA')===u?'selected':''}>${u}</option>`).join('')}</select>
+          </div></div>
+        <div class="mf"><label>단가(원)</label><input id="mip" type="number" value="${row?.std_price||''}" placeholder="0" style="max-width:150px"></div>
+        <div class="mf"><label>필수여부</label><label class="ck-lbl"><input type="checkbox" id="mir" ${row?.is_required==='Y'?'checked':''}> 필수 항목</label></div>
+        ${cats.length?`<div class="mf"><label>분류</label><select id="micat"><option value="">선택</option>${catOpts}</select></div>`:''}
+        <div class="mf"><label>브랜드</label><input id="mib" value="${esc(row?.brand||'')}" placeholder="예: LG, 삼성, IKEA"></div>
+        <div class="mf"><label>규격</label><input id="mis" value="${esc(row?.spec||'')}" placeholder="예: 600L, 55인치, W1800"></div>
+        <div class="mf"><label>메모</label><textarea id="mim">${esc(row?.note||'')}</textarea></div>
+      </div>
+      <div class="mo-ft">
+        <button class="bs" onclick="saveMoItem()">💾 저장</button>
+        ${row?`<button class="bd" onclick="deleteMoItem(${row.bom_id})">🗑 삭제</button>`:''}
+        <button class="bc" onclick="closeMo()">취소</button>
+      </div>`;
+    openMo(); setTimeout(()=>document.getElementById('min').focus(),80);
+  }
+
+  window.saveMoItem = async function() {
+    const { isEdit, row, ctx } = _mo;
+    const name = document.getElementById('min').value.trim();
+    if (!name) { alert('항목명을 입력하세요'); return; }
+    const body = {
+      item_name:   name,
+      item_code:   document.getElementById('mic').value.trim(),
+      qty:         parseFloat(document.getElementById('miq').value)||1,
+      unit:        document.getElementById('miu').value,
+      std_price:   parseInt(document.getElementById('mip').value)||0,
+      is_required: document.getElementById('mir').checked?'Y':'N',
+      cat_id:      document.getElementById('micat')?.value||null,
+      brand:       document.getElementById('mib').value.trim()||null,
+      spec:        document.getElementById('mis').value.trim()||null,
+      note:        document.getElementById('mim').value.trim()||null
+    };
+    const res = isEdit
+      ? await fetch(`/api/items/${row.item_id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,bom_id:row.bom_id})})
+      : await fetch('/api/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,parent_item_id:ctx?.parentItemId||leftSelId})});
+    if (res.ok) { closeMo(); await loadAll(); }
+    else { alert((await res.json()).error||'저장 실패'); }
+  };
+
+  window.deleteMoItem = async function(bomId) {
+    if (!confirm('삭제하면 하위 항목도 모두 삭제됩니다. 계속할까요?')) return;
+    await fetch(`/api/bom/${bomId}`,{method:'DELETE'});
+    closeMo(); await loadAll();
+  };
+
+  /* ══ 모달 유틸 ══════════════════════════════════════════════ */
+  /* ══ 집 모달 ═══════════════════════════════════════════════ */
+  function openHouseMo(h) {
+    _mo = { type:'house', isEdit:!!h, data:h||{} };
+    document.getElementById('moBx').innerHTML = `
+      <div class="mo-hd"><h4>🏠 ${h?'집 편집':'새 집 추가'}</h4><button class="x" onclick="closeMo()">✕</button></div>
+      <div class="mo-bd">
+        <div class="mf"><label>집 이름 *</label><input id="mhn" value="${esc(h?.item_name||'')}" placeholder="예: 우리집, 옆집, 본가" onkeydown="if(event.key==='Enter')saveMoHouse()"></div>
+        <div class="mf"><label>코드</label><input id="mhc" value="${esc(h?.item_code||'')}" placeholder="자동생성" style="text-transform:uppercase;max-width:160px"></div>
+      </div>
+      <div class="mo-ft">
+        <button class="bs" onclick="saveMoHouse()">💾 저장</button>
+        ${h?`<button class="bd" onclick="deleteMoHouse(${h.item_id})">🗑 삭제</button>`:''}
+        <button class="bc" onclick="closeMo()">취소</button>
+      </div>`;
+    openMo(); setTimeout(()=>document.getElementById('mhn').focus(),80);
+  }
+
+  window.saveMoHouse = async function() {
+    const name = document.getElementById('mhn').value.trim();
+    const code = document.getElementById('mhc').value.trim().toUpperCase();
+    if (!name) { const el=document.getElementById('mhn'); el.classList.add('err'); el.focus(); return; }
+    const { isEdit, data } = _mo;
+    const res = await fetch(isEdit?`/api/houses/${data.item_id}`:'/api/houses', {
+      method: isEdit?'PUT':'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ house_name:name, house_code:code })
+    });
+    if (res.ok) {
+      const ret = await res.json();
+      closeMo();
+      if (!isEdit && ret.item_id) { currentHouseId=ret.item_id; leftSelId=null; }
+      await loadAll();
+    } else { alert((await res.json()).error||'저장 실패'); }
+  };
+
+  window.deleteMoHouse = async function(itemId) {
+    if (!confirm('집을 삭제하면 모든 구역과 항목도 삭제됩니다. 계속할까요?')) return;
+    await fetch(`/api/houses/${itemId}`, { method:'DELETE' });
+    if (currentHouseId===itemId) { currentHouseId=null; leftSelId=null; }
+    closeMo(); await loadAll();
+  };
+
+  document.getElementById('btnAddHouse').addEventListener('click', () => openHouseMo(null));
+
+  function openMo()  { document.getElementById('moOv').classList.add('open'); }
+  window.closeMo = () => document.getElementById('moOv').classList.remove('open');
+
+  await loadAll();
+})();
+</script>

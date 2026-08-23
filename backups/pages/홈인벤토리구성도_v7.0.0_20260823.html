@@ -1,0 +1,516 @@
+<meta name="prog-version" content="7.0.0" data-date="2026-08-21">
+<style>
+  #chartWrap {
+    width:100%; height:calc(100vh - 160px);
+    position:relative; background:#fff;
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.07); overflow:hidden;
+  }
+  #chartSvg { width:100%; height:100%; }
+  .node-label { font-family:'Malgun Gothic',sans-serif; pointer-events:none; }
+
+  #tip {
+    display:none; position:absolute; background:#fff;
+    border:1px solid #e2e8f0; border-radius:8px;
+    padding:10px 14px; font-size:12px;
+    font-family:'Malgun Gothic',sans-serif;
+    pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,.12);
+    min-width:150px; z-index:10;
+  }
+  #tip .tn { font-weight:700; font-size:13px; margin-bottom:4px; color:#1a3a6e; }
+  #tip .tr { color:#555; margin-top:3px; }
+  #tip .th { color:#f59e0b; font-size:11px; margin-top:5px; }
+  .req-y { display:inline-block; margin-top:5px; padding:2px 8px; border-radius:4px;
+            font-size:11px; font-weight:700; background:#dcfce7; color:#166534; }
+  .req-n { display:inline-block; margin-top:5px; padding:2px 8px; border-radius:4px;
+            font-size:11px; font-weight:700; background:#f3f4f6; color:#6b7280; }
+
+  #legend {
+    position:absolute; bottom:16px; left:16px;
+    background:rgba(255,255,255,.93); border:1px solid #e2e8f0;
+    border-radius:8px; padding:10px 14px; font-size:11px;
+    font-family:'Malgun Gothic',sans-serif;
+  }
+  #legend .lr { display:flex; align-items:center; gap:6px; margin-top:4px; }
+  #legend .ld { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+  .zoom-btns { position:absolute; top:12px; right:12px; display:flex; gap:4px; }
+  .zoom-btns button {
+    width:30px; height:30px; background:#fff;
+    border:1px solid #e2e8f0; border-radius:6px; cursor:pointer;
+    font-size:16px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .zoom-btns button:hover { background:#f0f4ff; }
+
+  /* 집중보기 배지 */
+  #focusBadge {
+    display:none; position:absolute; top:12px; left:12px;
+    background:#1a3a6e; color:#fff; border-radius:6px;
+    padding:5px 12px; font-size:12px; font-family:'Malgun Gothic',sans-serif;
+    font-weight:600; z-index:10; cursor:pointer; user-select:none;
+  }
+  #focusBadge:hover { background:#dc2626; }
+  #focusBadge.on { display:flex; align-items:center; gap:6px; }
+
+  /* 컨텍스트 메뉴 */
+  #ctxMenu {
+    display:none; position:absolute; z-index:50;
+    background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+    box-shadow:0 6px 20px rgba(0,0,0,.16);
+    min-width:172px; overflow:hidden;
+    font-family:'Malgun Gothic',sans-serif;
+  }
+  .ctx-head {
+    padding:8px 14px 6px;
+    font-size:11px; font-weight:700; color:#1a3a6e;
+    background:#f8faff; border-bottom:1px solid #e8eef8;
+  }
+  .ctx-item {
+    padding:9px 14px; font-size:12px; cursor:pointer;
+    color:#1e293b; display:flex; align-items:center; gap:7px;
+    transition:background .1s;
+  }
+  .ctx-item:hover { background:#f0f4ff; }
+  .ctx-divider { height:1px; background:#f0f0f0; margin:3px 0; }
+</style>
+
+<div class="tree-filter" style="margin-bottom:12px;">
+  <select id="selZone"><option value="">구역 전체</option></select>
+  <label><input type="checkbox" id="chkRequired"> 필수만 보기</label>
+  <button class="btn-sm btn-primary" onclick="reload()">조회</button>
+  <button class="btn-sm btn-gray" onclick="expandAll()">전체 펼치기</button>
+  <button class="btn-sm btn-gray" onclick="collapseAll()">전체 접기</button>
+</div>
+
+<div id="chartWrap">
+  <svg id="chartSvg"></svg>
+  <div id="tip"></div>
+  <div id="ctxMenu"></div>
+  <div id="focusBadge" onclick="exitFocus()">📌 집중 보기 · 클릭하여 해제</div>
+  <div id="legend"><div style="font-weight:700;color:#1a3a6e;margin-bottom:4px;">구역</div></div>
+  <div class="zoom-btns">
+    <button onclick="zoomIn()">＋</button>
+    <button onclick="zoomOut()">－</button>
+    <button onclick="zoomReset()" style="font-size:12px">⟳</button>
+  </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(async function () {
+  const fmt = n => Number(n).toLocaleString();
+  const PALETTE = ['#3b82f6','#ef4444','#10b981','#f59e0b',
+                   '#8b5cf6','#ec4899','#06b6d4','#84cc16'];
+
+  /* ── 기초 데이터 ── */
+  let houseData = { house_id: 1, house_code: 'H000001', house_name: '우리집' };
+  const allBomFlat = await fetch('/api/bom-tree').then(r => r.json());
+  const hNode = allBomFlat.find(r => r.node_type === 'H');
+  if (hNode) houseData = { house_id: hNode.item_id, house_code: hNode.item_code, house_name: hNode.item_name };
+  const zones0 = allBomFlat.filter(r => r.node_type === 'Z');
+  const selEl  = document.getElementById('selZone');
+  zones0.forEach(z => {
+    const o = document.createElement('option');
+    o.value = z.zone_id; o.textContent = z.zone_name;
+    selEl.appendChild(o);
+  });
+
+  /* ── 데이터 → 계층 (allZones 포함 → 빈 구역도 표시) ── */
+  function toHierarchy(flat, filterZoneId) {
+    function mkItems(parentId) {
+      return flat.filter(r => r.parent_item_id === parentId && r.node_type === 'I')
+        .sort((a,b) => +a.sort_order - +b.sort_order)
+        .map(r => ({ id:`b${r.bom_id}`, name:r.item_name, code:r.item_code,
+                     qty:r.qty, price:+r.std_price, req:r.is_required,
+                     children: mkItems(r.item_id) }));
+    }
+    const zones = flat.filter(r => r.node_type === 'Z')
+      .filter(r => !filterZoneId || r.item_id === filterZoneId)
+      .sort((a,b) => +a.sort_order - +b.sort_order)
+      .map(z => ({ id:`z${z.item_id}`, name:z.item_name, code:z.item_code,
+                   sort:+z.sort_order, children: mkItems(z.item_id) }));
+    return { id:'root', name: houseData.house_name, code: houseData.house_code, children: zones };
+  }
+
+  /* ── D3 셋업 ── */
+  const wrap    = document.getElementById('chartWrap');
+  const svg     = d3.select('#chartSvg');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  svg.attr('viewBox', [0, 0, W, H]);
+
+  const g = svg.append('g');
+  const centerT = d3.zoomIdentity.translate(W/2, H/2);
+  const zoomBhv = d3.zoom().scaleExtent([0.05, 4])
+    .on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoomBhv);
+  svg.call(zoomBhv.transform, centerT);
+
+  window.zoomIn    = () => svg.transition().duration(300).call(zoomBhv.scaleBy, 1.3);
+  window.zoomOut   = () => svg.transition().duration(300).call(zoomBhv.scaleBy, 0.77);
+  window.zoomReset = () => svg.transition().duration(400)
+    .call(zoomBhv.transform, focusMode ? d3.zoomIdentity.translate(W/2, 56) : centerT);
+
+  svg.on('click',       () => hideCtx());
+  svg.on('contextmenu', e  => { e.preventDefault(); hideCtx(); });
+
+  /* ── 전역 상태 ── */
+  let root, colorMap, simulation;
+  let focusMode = false;
+
+  function nodeColor(d) {
+    if (d.depth === 0) return '#1a3a6e';
+    let n = d; while (n.depth > 1) n = n.parent;
+    return colorMap.get(n.data.id) || '#6b7280';
+  }
+  function countAll(d) {
+    return [...(d.children||[]),...(d._children||[])].reduce((s,c)=>s+1+countAll(c),0);
+  }
+  function sumAll(d) {
+    return [...(d.children||[]),...(d._children||[])].reduce((s,c)=>
+      s+(c.data.price?+c.data.qty*+c.data.price:0)+sumAll(c), 0);
+  }
+
+  /* ════════════════════════════════════════════
+     공통 노드 렌더 (Force / Tree 양쪽에서 호출)
+  ════════════════════════════════════════════ */
+  function buildNodes(nodeSel, redrawFn) {
+    /* 원 */
+    nodeSel.append('circle')
+      .attr('r', d => [22,14,9,7][Math.min(d.depth,3)])
+      .attr('fill', d => {
+        if (d.depth===0) return '#1a3a6e';
+        if (d._children)  return nodeColor(d);
+        if (d.depth===1)  return (colorMap.get(d.data.id)||'#aaa')+'22';
+        return d.data.req==='Y' ? nodeColor(d) : '#fff';
+      })
+      .attr('stroke', d => d.depth===0 ? '#1a3a6e' : nodeColor(d))
+      .attr('stroke-width', 2);
+
+    /* 접힌 숫자 */
+    nodeSel.filter(d => !!d._children)
+      .append('text')
+      .attr('text-anchor','middle').attr('dy','0.35em')
+      .attr('font-size',8).attr('font-weight',700).attr('fill','#fff')
+      .attr('pointer-events','none')
+      .text(d => `+${countAll(d)}`);
+
+    /* 레이블 */
+    nodeSel.append('text')
+      .attr('class','node-label')
+      .attr('text-anchor','middle')
+      .attr('dy', d => d.depth===0 ? '0.35em' : -(([22,14,9,7][Math.min(d.depth,3)])+4))
+      .text(d => { const n=d.data.name; return n.length>9?n.slice(0,8)+'…':n; })
+      .attr('font-size', d => [14,12,11,10][Math.min(d.depth,3)])
+      .attr('font-weight', d => d.depth<=1?700:400)
+      .attr('fill', d => d.depth===0?'#fff': d.depth===1?nodeColor(d):'#374151');
+
+    /* 왼클릭 — 접기/펼치기 */
+    nodeSel.on('click', (event, d) => {
+      if (d.depth===0) return;
+      event.stopPropagation();
+      hideCtx();
+      if (d.children)       { d._children=d.children;  d.children=null; }
+      else if (d._children) { d.children=d._children;  d._children=null; }
+      redrawFn();
+    });
+
+    /* 우클릭 — 컨텍스트 메뉴 */
+    nodeSel.on('contextmenu', (event, d) => {
+      if (d.depth===0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      document.getElementById('tip').style.display='none';
+      showCtx(event.clientX, event.clientY, d);
+    });
+
+    /* 툴팁 */
+    const tip = document.getElementById('tip');
+    nodeSel
+      .on('mouseover', (event,d) => {
+        if (d.depth===0) return;
+        const hasKids = d.children||d._children;
+        if (d.depth===1) {
+          tip.innerHTML=`<div class="tn">${d.data.name}</div>
+            <div class="tr" style="color:#9ca3af;font-size:11px">${d.data.code||''}</div>
+            <div class="tr">비품 ${countAll(d)}종</div>
+            <div class="tr">소계 ${fmt(sumAll(d))}원</div>
+            ${hasKids?`<div class="th">좌클릭=접기/펼치기 · 우클릭=메뉴</div>`:''}`;
+        } else {
+          tip.innerHTML=`<div class="tn">${d.data.name}</div>
+            <div class="tr" style="color:#9ca3af;font-size:11px">${d.data.code||''}</div>
+            <div class="tr">수량 ${d.data.qty} · 단가 ${fmt(d.data.price)}원</div>
+            <div class="tr">금액 <strong>${fmt(+d.data.qty*+d.data.price)}원</strong></div>
+            <span class="${d.data.req==='Y'?'req-y':'req-n'}">${d.data.req==='Y'?'필수':'선택'}</span>
+            ${hasKids?`<div class="th">좌클릭=접기/펼치기 · 우클릭=메뉴</div>`:''}`;
+        }
+        tip.style.display='block';
+      })
+      .on('mousemove', event => {
+        const r=wrap.getBoundingClientRect();
+        tip.style.left=(event.clientX-r.left+14)+'px';
+        tip.style.top=(event.clientY-r.top+14)+'px';
+      })
+      .on('mouseleave', () => tip.style.display='none');
+  }
+
+  /* ════════════════════════════════════════════
+     Force 렌더 (일반 모드)
+  ════════════════════════════════════════════ */
+  function flatten(node) {
+    const nodes=[], links=[];
+    function visit(d) {
+      nodes.push(d);
+      if (d.children) d.children.forEach(c=>{ links.push({source:d,target:c}); visit(c); });
+    }
+    visit(node);
+    return { nodes, links };
+  }
+
+  function renderFromRoot() {
+    g.selectAll('*').remove();
+    if (simulation) simulation.stop();
+
+    const { nodes, links } = flatten(root);
+
+    const linkSel = g.append('g')
+      .selectAll('line').data(links).join('line')
+      .attr('fill','none')
+      .attr('stroke', d => {
+        let n=d.target; while(n.depth>1) n=n.parent;
+        return n.depth===1 ? (colorMap.get(n.data.id)||'#aaa')+'88' : '#cbd5e1';
+      })
+      .attr('stroke-width', d => d.source.depth===0?2.5:1.5);
+
+    const nodeSel = g.append('g')
+      .selectAll('g').data(nodes).join('g')
+      .style('cursor', d => (d.children||d._children)&&d.depth>0?'pointer':'default')
+      .call(d3.drag()
+        .on('start', (event,d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx=d.x; d.fy=d.y;
+        })
+        .on('drag', (event,d) => { d.fx=event.x; d.fy=event.y; })
+        .on('end', (event,d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx=event.x; d.fy=event.y;
+          simulation.alpha(0.4).restart();
+          setTimeout(()=>{ d.fx=null; d.fy=null; }, 600);
+        })
+      );
+
+    buildNodes(nodeSel, renderFromRoot);
+
+    simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links)
+        .distance(d => d.source.depth===0?55:d.target.depth===1?130:110)
+        .strength(0.8))
+      .force('charge', d3.forceManyBody()
+        .strength(d => d.depth===0?-500:d.depth===1?-200:-350))
+      .force('center', d3.forceCenter(0,0).strength(0.06))
+      .force('collision', d3.forceCollide()
+        .radius(d => [30,22,20,18][Math.min(d.depth,3)])
+        .strength(1.0).iterations(4))
+      .on('tick', () => {
+        linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+               .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+        nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
+      });
+  }
+
+  /* ════════════════════════════════════════════
+     Tree 렌더 (집중 보기 모드)
+     — d3.tree() 이용 위→아래 계층 배치
+  ════════════════════════════════════════════ */
+  function renderAsTree() {
+    g.selectAll('*').remove();
+    if (simulation) { simulation.stop(); simulation = null; }
+
+    /* 트리 레이아웃 계산 */
+    const VSEP = 100;   // 레벨 간 세로 간격
+    const HSEP = 60;    // 형제 노드 가로 간격
+    d3.tree().nodeSize([HSEP, VSEP])(root);
+
+    const nodes = root.descendants();
+    const links  = root.links();
+
+    /* 줌을 최상단-중앙으로 리셋 */
+    svg.call(zoomBhv.transform, d3.zoomIdentity.translate(W/2, 56));
+
+    /* 링크 — 수직 베지어 곡선 */
+    g.append('g')
+      .selectAll('path').data(links).join('path')
+      .attr('fill','none')
+      .attr('stroke', d => {
+        let n=d.target; while(n.depth>1) n=n.parent;
+        return n.depth===1 ? (colorMap.get(n.data.id)||'#aaa')+'88' : '#cbd5e1';
+      })
+      .attr('stroke-width', d => d.source.depth===0?2.5:1.5)
+      .attr('d', d3.linkVertical().x(d=>d.x).y(d=>d.y));
+
+    /* 노드 */
+    const nodeSel = g.append('g')
+      .selectAll('g').data(nodes).join('g')
+      .attr('transform', d => `translate(${d.x},${d.y})`)
+      .style('cursor', d => d.depth>0?'pointer':'default');
+
+    buildNodes(nodeSel, renderAsTree);
+  }
+
+  /* ════════════════════════════════════════════
+     Feature 1: 하위 전체 접기
+  ════════════════════════════════════════════ */
+  function collapseDeep(d) {
+    function rec(node) {
+      (node.children||[]).forEach(rec);
+      if (node.children) { node._children=node.children; node.children=null; }
+    }
+    (d.children||[]).forEach(rec);
+    if (d.children) { d._children=d.children; d.children=null; }
+    focusMode ? renderAsTree() : renderFromRoot();
+  }
+
+  /* ════════════════════════════════════════════
+     Feature 1-2: 하위 전체 펼치기
+  ════════════════════════════════════════════ */
+  function expandDeep(d) {
+    function rec(node) {
+      if (node._children) { node.children=node._children; node._children=null; }
+      (node.children||[]).forEach(rec);
+    }
+    rec(d); // d 자신 포함, 모든 하위 재귀 펼치기
+    focusMode ? renderAsTree() : renderFromRoot();
+  }
+
+  /* ════════════════════════════════════════════
+     Feature 2: 집중 보기 (포커스 뷰)
+     조상: 직계 경로만 표시 / 선택 노드 하위: 전부 펼침
+     렌더: 위→아래 트리 레이아웃
+  ════════════════════════════════════════════ */
+  function focusOn(d) {
+    focusMode = true;
+    document.getElementById('focusBadge').classList.add('on');
+
+    /* 1. 조상 경로 수집 */
+    const pathToRoot = [];
+    let curr = d;
+    while (curr.parent) {
+      pathToRoot.push({ node:curr, parent:curr.parent });
+      curr = curr.parent;
+    }
+
+    /* 2. 각 조상: 직계 자식만 표시, 형제는 _children 으로 */
+    for (const { node, parent } of pathToRoot) {
+      const allKids = [...(parent.children||[]), ...(parent._children||[])];
+      parent.children  = [node];
+      const siblings   = allKids.filter(k => k!==node);
+      parent._children = siblings.length ? siblings : null;
+    }
+
+    /* 3. 선택 노드 하위: 재귀 펼치기 */
+    function expandRec(node) {
+      if (node._children) {
+        node.children  = [...(node.children||[]), ...node._children];
+        node._children = null;
+      }
+      (node.children||[]).forEach(expandRec);
+    }
+    expandRec(d);
+
+    renderAsTree();
+  }
+
+  /* 집중 보기 해제 */
+  window.exitFocus = function () {
+    focusMode = false;
+    document.getElementById('focusBadge').classList.remove('on');
+    window.expandAll();
+  };
+
+  /* ════════════════════════════════════════════
+     컨텍스트 메뉴
+  ════════════════════════════════════════════ */
+  function showCtx(clientX, clientY, d) {
+    const menu  = document.getElementById('ctxMenu');
+    const wRect = wrap.getBoundingClientRect();
+
+    menu.innerHTML = `<div class="ctx-head">${d.data.name}</div>`;
+
+    if (d.children || d._children) {
+      addCtxItem(menu,'🔼','하위 전체 펼치기', () => expandDeep(d));
+      addCtxItem(menu,'🔽','하위 전체 접기',   () => collapseDeep(d));
+    }
+    addCtxItem(menu,'📌','이 노드 집중 보기', () => focusOn(d));
+
+    menu.appendChild(Object.assign(document.createElement('div'),{className:'ctx-divider'}));
+    addCtxItem(menu,'🌐','전체 펼쳐 보기', () => window.exitFocus());
+
+    menu.style.display = 'block';
+    const mx = clientX - wRect.left + 6;
+    const my = clientY - wRect.top  + 6;
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    menu.style.left = (mx+mw>wRect.width  ? mx-mw-12 : mx) + 'px';
+    menu.style.top  = (my+mh>wRect.height ? my-mh-12 : my) + 'px';
+  }
+  function addCtxItem(menu, icon, label, fn) {
+    const el = document.createElement('div');
+    el.className = 'ctx-item';
+    el.innerHTML = `<span style="font-size:13px">${icon}</span><span>${label}</span>`;
+    el.addEventListener('click', e=>{ e.stopPropagation(); hideCtx(); fn(); });
+    menu.appendChild(el);
+  }
+  function hideCtx() { document.getElementById('ctxMenu').style.display='none'; }
+
+  /* ── 범례 ── */
+  function updateLegend(zones) {
+    const leg = document.getElementById('legend');
+    leg.innerHTML = `<div style="font-weight:700;margin-bottom:6px;color:#1a3a6e;">구역</div>`;
+    zones.forEach(z => {
+      const c = colorMap.get(z.id)||'#aaa';
+      leg.innerHTML += `<div class="lr"><div class="ld" style="background:${c}"></div>${z.name}</div>`;
+    });
+    leg.innerHTML += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;color:#6b7280;font-size:10px;">
+      ● 채움=필수 &nbsp;○ 비움=선택<br>
+      좌클릭=접기/펼치기 &nbsp;우클릭=메뉴<br>드래그=이동</div>`;
+  }
+
+  /* ── 전체 펼치기/접기 ── */
+  window.expandAll = () => {
+    focusMode = false;
+    document.getElementById('focusBadge').classList.remove('on');
+    root.descendants().forEach(d=>{if(d._children){d.children=d._children;d._children=null;}});
+    svg.call(zoomBhv.transform, centerT);
+    renderFromRoot();
+  };
+  window.collapseAll = () => {
+    focusMode = false;
+    document.getElementById('focusBadge').classList.remove('on');
+    root.descendants().forEach(d=>{if(d.children&&d.depth>0){d._children=d.children;d.children=null;}});
+    svg.call(zoomBhv.transform, centerT);
+    renderFromRoot();
+  };
+
+  /* ── 데이터 로드 ── */
+  async function reload() {
+    const zone     = document.getElementById('selZone')?.value||'';
+    const required = document.getElementById('chkRequired')?.checked?'Y':'';
+    const params   = new URLSearchParams();
+    if (zone)     params.set('zone', zone);
+    if (required) params.set('required', required);
+
+    const flat = await fetch('/api/bom-tree?'+params).then(r=>r.json());
+    const filterZoneId = parseInt(zone) || null;
+    const data = toHierarchy(flat, filterZoneId);
+    colorMap = new Map();
+    (data.children||[]).forEach((z,i)=>colorMap.set(z.id, PALETTE[i%PALETTE.length]));
+    root = d3.hierarchy(data);
+    focusMode = false;
+    document.getElementById('focusBadge').classList.remove('on');
+    svg.call(zoomBhv.transform, centerT);
+    renderFromRoot();
+    updateLegend(data.children||[]);
+  }
+
+  window.reload = reload;
+  await reload();
+})();
+</script>
