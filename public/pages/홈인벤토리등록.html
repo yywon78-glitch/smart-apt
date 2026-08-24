@@ -1,4 +1,4 @@
-<meta name="prog-version" content="6.8.0" data-date="2026-08-23">
+<meta name="prog-version" content="6.9.0" data-date="2026-08-25">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -389,18 +389,11 @@
   };
 
   window.openAddLeft = () => {
-    if (leftPanelParentId) {
-      if (getZones().length === 0) openItemMo(null, { parentItemId: leftPanelParentId });
-      else startNewZoneRow();
-    } else if (currentHouseId) {
-      if (getZones().length === 0) openZoneMo(null);
-      else startNewZoneRow();
-    }
+    if (leftPanelParentId || currentHouseId) startNewZoneRow();
   };
   window.openAddRight = () => {
     if (!leftSelId) return;
-    if (getItems().length === 0) openItemMo(null, { parentItemId: leftSelId });
-    else startNewRow();
+    startNewRow();
   };
 
   /* ══ 인라인 입력 ═══════════════════════════════════════════ */
@@ -686,8 +679,7 @@
   };
 
   document.getElementById('btnAddHouse').addEventListener('click', () => {
-    if (getHouses().length === 0) openHouseMo(null);
-    else startNewHouseRow();
+    startNewHouseRow();
   });
 
   function openMo()  { document.getElementById('moOv').classList.add('open'); }
