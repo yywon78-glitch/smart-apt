@@ -1,4 +1,5 @@
-<meta name="prog-version" content="6.9.1" data-date="2026-08-25">
+<meta name="prog-version" content="6.10.0" data-date="2026-08-25">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   .sh-layout {
     display: flex; flex-direction: column;
@@ -119,6 +120,44 @@
   .bd:hover { background: #fee2e2; }
   .bc { padding: 8px 14px; color: #64748b; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: inherit; }
   .bc:hover { background: #f1f5f9; }
+
+  /* ── 반응형 (모바일) ── */
+  @media (max-width: 767px) {
+    .sh-layout { height: auto; min-height: calc(100vh - 52px); overflow: visible; font-size: 14px; }
+    .sh-body   { flex-direction: column; overflow: visible; height: auto; }
+    .gp        { overflow: visible; }
+    .gp-house  { width: 100% !important; border-right: none; border-bottom: 2px solid #e2e8f0; }
+    .gp-left   { width: 100% !important; border-right: none; border-bottom: 2px solid #e2e8f0; }
+    .gp-right  { width: 100% !important; }
+    .gp-wrap   { flex: none; max-height: 42vh; }
+    .gp-right .gp-wrap { max-height: 52vh; }
+
+    .gp-hd-bot { padding: 9px 12px 10px; }
+    .gp-hd-ctx { padding: 6px 12px 0; font-size: 11px; }
+    .gp-hd .gh-title { font-size: 14px; }
+    .btn-add   { font-size: 13px; padding: 9px 18px; }
+    .btn-drill-back { font-size: 12px; padding: 7px 13px; }
+
+    .gt th { padding: 10px 8px; font-size: 12px; }
+    .gt td { padding: 11px 8px; font-size: 14px; white-space: normal; }
+    .btn-g { padding: 8px 11px; font-size: 16px; }
+    .badge { font-size: 11px; padding: 2px 7px; }
+
+    /* 코드 컬럼 모바일에서 숨기기 */
+    .gp-left  .gt th:nth-child(3), .gp-left  .gt td:nth-child(3) { display: none; }
+    .gp-right .gt th:nth-child(3), .gp-right .gt td:nth-child(3) { display: none; }
+
+    /* 인라인 입력 행 터치 친화적 크기 */
+    .pr-row td { padding: 7px 6px; }
+    .pr-row input[type=text], .pr-row input[type=number] { font-size: 15px; padding: 9px 10px; }
+
+    /* 모달 전체 너비 */
+    .mo-bx { width: calc(100vw - 24px); }
+    .mo-bd { padding: 14px 16px; }
+    .mo-ft { padding: 10px 16px 14px; }
+    .mf label { width: 54px; font-size: 12px; }
+    .mf input, .mf select, .mf textarea { font-size: 14px; padding: 9px 10px; }
+  }
 </style>
 
 <div class="sh-layout">
@@ -364,12 +403,18 @@
   }
 
   /* ══ 선택 ══════════════════════════════════════════════════ */
+  const isMobile = () => window.innerWidth < 768;
+
   window.selHouse = function(id) {
     newRowState=null; editState=null; newZoneRowState=null; newHouseRowState=null;
     currentHouseId = id; leftSelId = null; leftPanelParentId = null; drillHistory = [];
     render();
+    if (isMobile()) setTimeout(() => document.querySelector('.gp-left')?.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
   };
-  window.selLeft = id => { newRowState=null; editState=null; newZoneRowState=null; leftSelId=id; render(); };
+  window.selLeft = id => {
+    newRowState=null; editState=null; newZoneRowState=null; leftSelId=id; render();
+    if (isMobile()) setTimeout(() => document.querySelector('.gp-right')?.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+  };
 
   window.drillDown = function(itemId) {
     newRowState=null; editState=null; newZoneRowState=null;
