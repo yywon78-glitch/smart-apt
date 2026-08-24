@@ -1,0 +1,251 @@
+<meta name="prog-version" content="1.0.0" data-date="2026-08-24">
+<style>
+  #wrap { padding: 20px; font-family: 'Malgun Gothic', sans-serif; font-size: 13px; max-width: 900px; }
+  h2 { font-size: 16px; color: #1a3a6e; margin-bottom: 16px; }
+  .step { background: #f8faff; border: 1px solid #dbe4f0; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .step-title { font-weight: 700; color: #1a3a6e; margin-bottom: 10px; font-size: 13px; }
+  .btn { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 600; }
+  .btn-primary { background: #1a3a6e; color: #fff; }
+  .btn-primary:hover { background: #24508f; }
+  .btn-primary:disabled { background: #aab; cursor: default; }
+  .btn-danger  { background: #dc2626; color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-gray    { background: #e5e7eb; color: #374151; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .badge-h { background: #1a3a6e; color: #fff; }
+  .badge-z { background: #3b82f6; color: #fff; }
+  .badge-i { background: #10b981; color: #fff; }
+  #statusMsg { padding: 10px 14px; border-radius: 6px; margin-top: 8px; font-size: 12px; display: none; }
+  #statusMsg.info  { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; display: block; }
+  #statusMsg.ok    { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; display: block; }
+  #statusMsg.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; display: block; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .preview-table th { background: #e8eef8; padding: 5px 8px; text-align: left; border: 1px solid #d0daea; }
+  .preview-table td { padding: 4px 8px; border: 1px solid #e2e8f0; }
+  .preview-table tr:nth-child(even) td { background: #f8faff; }
+  .stat-box { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+  .stat { background: #fff; border: 1px solid #d0daea; border-radius: 8px; padding: 10px 16px; text-align: center; min-width: 80px; }
+  .stat .num { font-size: 22px; font-weight: 800; color: #1a3a6e; }
+  .stat .lbl { font-size: 10px; color: #6b7280; margin-top: 2px; }
+  progress { width: 100%; height: 8px; margin-top: 6px; border-radius: 4px; }
+</style>
+
+<div id="wrap">
+  <h2>📥 Apart ERP 데이터 가져오기</h2>
+  <p style="color:#6b7280;margin-bottom:20px;font-size:12px;">
+    Apart ERP(localhost:3000)의 홈 인벤토리 데이터를 smart-apt Google Drive로 병합합니다.
+    Apart 서버가 켜져 있어야 합니다.
+  </p>
+
+  <!-- Step 1: 연결 확인 -->
+  <div class="step">
+    <div class="step-title">① Apart 서버 연결 확인</div>
+    <button class="btn btn-primary" id="btnConnect" onclick="checkApart()">연결 확인</button>
+    <div id="connectResult" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+  </div>
+
+  <!-- Step 2: 데이터 미리보기 -->
+  <div class="step" id="stepPreview" style="display:none;">
+    <div class="step-title">② Apart 데이터 미리보기</div>
+    <div class="stat-box" id="statBox"></div>
+    <div style="margin-top:12px;max-height:280px;overflow:auto;">
+      <table class="preview-table" id="previewTable">
+        <thead><tr><th>타입</th><th>코드</th><th>이름</th><th>상위</th><th>단가</th><th>필수</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;color:#6b7280;font-size:11px;">
+      ⚠️ 기존 smart-apt 데이터는 유지되고, Apart 데이터가 추가됩니다.
+      집 이름이 같은 경우 새 집으로 추가됩니다.
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-danger" id="btnImport" onclick="doImport()">Google Drive에 병합 저장</button>
+    </div>
+  </div>
+
+  <!-- 진행상황 -->
+  <div id="statusMsg"></div>
+</div>
+
+<script>
+let apartData = null;
+let apartCats = null;
+const fmt = n => Number(n||0).toLocaleString();
+
+function setStatus(msg, type='info') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = type;
+}
+
+/* ── Step 1: Apart 서버 확인 ── */
+async function checkApart() {
+  setStatus('localhost:3000 연결 중...', 'info');
+  document.getElementById('btnConnect').disabled = true;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch('http://localhost:3000/api/bom-tree'),
+      fetch('http://localhost:3000/api/categories')
+    ]);
+    if (!r1.ok || !r2.ok) throw new Error('API 응답 오류');
+    apartData = await r1.json();
+    apartCats = await r2.json();
+
+    const h = apartData.filter(r => r.node_type === 'H').length;
+    const z = apartData.filter(r => r.node_type === 'Z').length;
+    const i = apartData.filter(r => r.node_type === 'I').length;
+
+    document.getElementById('connectResult').innerHTML =
+      `<span style="color:#166534;font-weight:700;">✅ 연결 성공</span> — 집 ${h}개 · 구역 ${z}개 · 항목 ${i}개`;
+
+    showPreview(h, z, i);
+    setStatus('미리보기를 확인하고 병합 저장 버튼을 누르세요.', 'info');
+  } catch(e) {
+    document.getElementById('connectResult').innerHTML =
+      `<span style="color:#991b1b;font-weight:700;">❌ 연결 실패</span> — Apart 서버(localhost:3000)가 꺼져 있거나 CORS 오류입니다.`;
+    setStatus('Apart 서버를 먼저 켜주세요.', 'error');
+    document.getElementById('btnConnect').disabled = false;
+  }
+}
+
+function showPreview(h, z, i) {
+  document.getElementById('stepPreview').style.display = 'block';
+  document.getElementById('statBox').innerHTML = `
+    <div class="stat"><div class="num">${h}</div><div class="lbl">집(H)</div></div>
+    <div class="stat"><div class="num">${z}</div><div class="lbl">구역(Z)</div></div>
+    <div class="stat"><div class="num">${i}</div><div class="lbl">항목(I)</div></div>
+    <div class="stat"><div class="num">${apartCats.length}</div><div class="lbl">카테고리</div></div>`;
+
+  const tbody = document.querySelector('#previewTable tbody');
+  tbody.innerHTML = '';
+  apartData.slice(0, 50).forEach(r => {
+    const badge = {'H':'badge-h','Z':'badge-z','I':'badge-i'}[r.node_type] || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="badge ${badge}">${r.node_type}</span></td>
+      <td>${r.item_code||''}</td>
+      <td>${r.item_name||''}</td>
+      <td style="color:#9ca3af;font-size:11px">${r.parent_item_id||'-'}</td>
+      <td style="text-align:right">${r.std_price ? fmt(r.std_price) : '-'}</td>
+      <td style="text-align:center">${r.is_required==='Y'?'✓':''}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (apartData.length > 50) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="6" style="text-align:center;color:#9ca3af;font-style:italic;">... 외 ${apartData.length-50}건</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* ── Step 2: 병합 저장 ── */
+async function doImport() {
+  if (!apartData) { setStatus('먼저 Apart 서버 연결 확인을 하세요.', 'error'); return; }
+  if (!confirm(`Apart 데이터 ${apartData.length}건을 Google Drive에 병합 저장하겠습니까?\n(기존 smart-apt 데이터는 유지됩니다)`)) return;
+
+  document.getElementById('btnImport').disabled = true;
+  setStatus('현재 Google Drive 데이터 로딩 중...', 'info');
+
+  try {
+    const db = SmartDrive.getDb() || await SmartDrive.loadDb();
+
+    /* 현재 최대 ID 계산 */
+    const allIds = [
+      ...db.items.map(x => x.item_id),
+      ...db.bom.map(x => x.bom_id),
+      ...(db.categories||[]).map(x => x.cat_id),
+    ].filter(Number.isFinite);
+    let nextId = (allIds.length ? Math.max(...allIds) : 0) + 10000;
+    const newId = () => ++nextId;
+
+    setStatus('카테고리 병합 중...', 'info');
+
+    /* 카테고리 병합 (cat_code 기준) */
+    const catMap = new Map(); // apart cat_id -> smart-apt cat_id
+    const existCodes = new Set((db.categories||[]).map(c => c.cat_code));
+
+    (apartCats||[]).forEach(ac => {
+      const existing = (db.categories||[]).find(c => c.cat_code === ac.cat_code);
+      if (existing) {
+        catMap.set(ac.cat_id, existing.cat_id);
+      } else {
+        const nid = newId();
+        catMap.set(ac.cat_id, nid);
+        db.categories = db.categories || [];
+        // parent_cat_id 는 기본 루트 카테고리에 연결
+        const rootCat = (db.categories||[]).find(c => c.parent_cat_id === null);
+        db.categories.push({
+          cat_id: nid,
+          parent_cat_id: rootCat?.cat_id || 1,
+          cat_code: ac.cat_code,
+          cat_name: ac.cat_name,
+          sort_order: (db.categories.length || 0) + 1
+        });
+      }
+    });
+
+    setStatus('항목(items) 변환 중...', 'info');
+
+    /* item_id 재매핑 테이블 */
+    const itemMap = new Map(); // apart item_id -> new item_id
+
+    apartData.forEach(r => {
+      const nid = newId();
+      itemMap.set(r.item_id, nid);
+    });
+
+    /* items 추가 */
+    apartData.forEach(r => {
+      const nid = itemMap.get(r.item_id);
+      const mappedCat = catMap.get(r.cat_id) || (db.categories?.[0]?.cat_id || 1);
+      db.items.push({
+        item_id:    nid,
+        node_type:  r.node_type,
+        item_code:  r.item_code || `${r.node_type}${String(nid).padStart(6,'0')}`,
+        item_name:  r.item_name,
+        cat_id:     mappedCat,
+        unit:       r.unit || 'EA',
+        std_price:  r.std_price || 0,
+        brand:      r.brand || null,
+        spec:       r.spec  || null,
+        note:       r.note  || null,
+        sort_order: r.sort_order || 0,
+        use_yn:     'Y'
+      });
+    });
+
+    setStatus('BOM 관계 변환 중...', 'info');
+
+    /* bom 추가 (H 노드 제외, bom_id 있는 것만) */
+    apartData.forEach(r => {
+      if (!r.bom_id || r.node_type === 'H') return;
+      const newBomId      = newId();
+      const newParentId   = itemMap.get(r.parent_item_id);
+      const newChildId    = itemMap.get(r.item_id);
+      if (!newParentId || !newChildId) return;
+      db.bom.push({
+        bom_id:         newBomId,
+        parent_item_id: newParentId,
+        child_item_id:  newChildId,
+        qty:            r.qty || 1,
+        is_required:    r.is_required || 'N',
+        sort_order:     r.sort_order || 0,
+        level_no:       r.level_no || 0
+      });
+    });
+
+    setStatus('Google Drive에 저장 중...', 'info');
+    await SmartDrive.saveDb();
+
+    const addedH = apartData.filter(r=>r.node_type==='H').length;
+    const addedZ = apartData.filter(r=>r.node_type==='Z').length;
+    const addedI = apartData.filter(r=>r.node_type==='I').length;
+    setStatus(`✅ 저장 완료! 집 ${addedH}개 · 구역 ${addedZ}개 · 항목 ${addedI}개가 추가되었습니다. 홈 인벤토리 구성도를 새로고침하면 반영됩니다.`, 'ok');
+    document.getElementById('btnImport').textContent = '✅ 저장 완료';
+
+  } catch(e) {
+    console.error(e);
+    setStatus('오류: ' + e.message, 'error');
+    document.getElementById('btnImport').disabled = false;
+  }
+}
+</script>
